@@ -604,11 +604,42 @@
               // Word disappears (Cleared) instead of stacking
               spawnNextWord();
             } else {
-              // Failed Phase B -> Solidify as punishment
-              solidifyWord();
+              // Failed Phase B -> Drop to bottom immediately
+              dropToBottom();
             }
             // Always reset cursor on answer
             setMeaningCursorIndex(0);
+          };
+
+          const dropToBottom = () => {
+            // Find the lowest possible position for the word
+            const { x, letters } = currentWord;
+            let finalY = currentWord.y;
+            
+            // Keep moving down until collision
+            while (finalY < GRID_ROWS && !checkCollision(x, finalY + 1, letters.length, grid)) {
+              finalY++;
+            }
+            
+            // Update position and solidify
+            setCurrentWord(prev => ({ ...prev, y: finalY }));
+            
+            // Use setTimeout to ensure the visual update happens before solidifying
+            setTimeout(() => {
+              const newGrid = [...grid];
+              const { x, letters } = currentWord;
+              
+              letters.forEach((l, idx) => {
+                const gridY = finalY;
+                const gridX = x + idx;
+                if (gridY >= 0 && gridY < GRID_ROWS && gridX >= 0 && gridX < GRID_COLS) {
+                  newGrid[gridY][gridX] = l.char;
+                }
+              });
+              
+              setGrid(newGrid);
+              spawnNextWord();
+            }, 100);
           };
 
           // --- Rendering Helpers ---
@@ -887,17 +918,6 @@
                         <div className="text-sm font-semibold text-gray-300 capitalize">{speedMode}</div>
                       </div>
                     </div>
-                  </div>
-
-                  {/* Next Word Panel */}
-                  <div className="bg-gray-900 p-6 rounded-xl border border-gray-800 shadow-xl">
-                     <p className="text-xs text-gray-500 uppercase font-bold tracking-wider mb-3">Next Word (下一個單字)</p>
-                     <div className="bg-gray-950 p-4 rounded-lg border border-gray-800 text-center">
-                       <p className="text-xl font-bold text-gray-400 tracking-widest">
-                         {nextWordData ? nextWordData.data.word.replace(/[A-Z]/g, '?') : '???'}
-                       </p>
-                       <p className="text-xs text-gray-600 mt-2">({nextWordData?.data.word.length} letters)</p>
-                     </div>
                   </div>
 
                   {/* Controls / Phase B Quiz Panel */}
