@@ -308,24 +308,19 @@
 
         function VocabrisApp() {
           // --- Game State ---
-          const [gameState, setGameState] = useState('MENU'); // MENU, PLAYING, GAMEOVER
+          const [currentUser, setCurrentUser] = useState(null); // 當前選擇的帳號
+          const [gameState, setGameState] = useState('USER_SELECT'); // USER_SELECT, MENU, PLAYING, GAMEOVER
           const [level, setLevel] = useState('elementary');
           const [speedMode, setSpeedMode] = useState('normal');
           const [score, setScore] = useState(0);
           const [vocabularyLoaded, setVocabularyLoaded] = useState(false);
           
           // --- Word Mastery Tracking ---
-          // Format: { "WORD": correctCount }
-          const [wordMastery, setWordMastery] = useState(() => {
-            const saved = localStorage.getItem('vocabris_mastery');
-            return saved ? JSON.parse(saved) : {};
-          });
+          // Format: { "WORD": correctCount } - 根據當前用戶從 vocabulary.json 載入
+          const [wordMastery, setWordMastery] = useState({});
           
           // Mastered words (answered correctly 3 times)
-          const [masteredWords, setMasteredWords] = useState(() => {
-            const saved = localStorage.getItem('vocabris_mastered');
-            return saved ? JSON.parse(saved) : [];
-          });
+          const [masteredWords, setMasteredWords] = useState([]);
           
           // Board State
           // grid represents the "dead" blocks (stacked). 0 = empty, string = letter content
@@ -367,14 +362,60 @@
               });
           }, []);
           
-          // --- Save Mastery Data to LocalStorage ---
+          // --- Load User Progress from vocabulary data when user is selected ---
           useEffect(() => {
-            localStorage.setItem('vocabris_mastery', JSON.stringify(wordMastery));
-          }, [wordMastery]);
+            if (currentUser && vocabularyLoaded && WORD_DATABASE) {
+              const mastery = {};
+              const mastered = [];
+              
+              // 從 WORD_DATABASE 載入當前用戶的學習進度
+              Object.keys(WORD_DATABASE).forEach(level => {
+                WORD_DATABASE[level].forEach(wordData => {
+                  const progress = parseInt(wordData[currentUser] || '0');
+                  if (progress > 0 && progress < 3) {
+                    mastery[wordData.word] = progress;
+                  } else if (progress >= 3) {
+                    mastered.push(wordData.word);
+                  }
+                });
+              });
+              
+              setWordMastery(mastery);
+              setMasteredWords(mastered);
+            }
+          }, [currentUser, vocabularyLoaded]);
           
+          // --- Save Progress - Update vocabulary data and trigger backend save ---
+          const saveProgress = useCallback(() => {
+            if (!currentUser || !WORD_DATABASE) return;
+            
+            // 更新 WORD_DATABASE 中的用戶進度
+            Object.keys(WORD_DATABASE).forEach(level => {
+              WORD_DATABASE[level].forEach(wordData => {
+                const word = wordData.word;
+                if (masteredWords.includes(word)) {
+                  wordData[currentUser] = '3';
+                } else if (wordMastery[word]) {
+                  wordData[currentUser] = String(wordMastery[word]);
+                } else {
+                  wordData[currentUser] = '0';
+                }
+              });
+            });
+            
+            // 保存到 localStorage 作為備份
+            localStorage.setItem(`vocabris_mastery_${currentUser}`, JSON.stringify(wordMastery));
+            localStorage.setItem(`vocabris_mastered_${currentUser}`, JSON.stringify(masteredWords));
+            
+            // TODO: 可以在這裡添加 API 調用來保存回 CSV 檔案
+          }, [currentUser, wordMastery, masteredWords]);
+          
+          // 當進度變化時自動保存
           useEffect(() => {
-            localStorage.setItem('vocabris_mastered', JSON.stringify(masteredWords));
-          }, [masteredWords]);
+            if (currentUser) {
+              saveProgress();
+            }
+          }, [wordMastery, masteredWords, currentUser, saveProgress]);
           
           // --- Focus Management (確保遊戲容器保持焦點) ---
           useEffect(() => {
@@ -831,11 +872,66 @@
 
           // --- UI Components ---
 
+          // 帳號選擇畫面
+          const UserSelectScreen = () => {
+            const users = [
+              { name: 'Ginger', color: 'from-pink-500 to-rose-600', icon: '🌸' },
+              { name: 'River', color: 'from-blue-500 to-cyan-600', icon: '🌊' },
+              { name: 'Sigma', color: 'from-purple-500 to-violet-600', icon: '⚡' }
+            ];
+
+            return (
+              <div className="absolute inset-0 z-50 bg-gray-900 text-white flex flex-col items-center justify-center space-y-8 p-6">
+                <h1 className="text-5xl md:text-6xl font-black text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-purple-600 tracking-tighter mb-4">
+                  VOCABRIS
+                </h1>
+                
+                <p className="text-xl text-gray-400 mb-8">選擇你的帳號 | Choose Your Account</p>
+                
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 w-full max-w-4xl">
+                  {users.map(user => (
+                    <button
+                      key={user.name}
+                      onClick={() => {
+                        setCurrentUser(user.name);
+                        setGameState('MENU');
+                      }}
+                      className={`bg-gradient-to-br ${user.color} p-8 rounded-2xl shadow-2xl hover:scale-105 transition-all duration-300 flex flex-col items-center gap-4 border-2 border-white/20`}
+                    >
+                      <div className="text-6xl">{user.icon}</div>
+                      <div className="text-3xl font-bold">{user.name}</div>
+                      <div className="text-sm text-white/80">點擊開始 | Click to Start</div>
+                    </button>
+                  ))}
+                </div>
+                
+                {!vocabularyLoaded && (
+                  <div className="text-yellow-400 text-sm mt-8">Loading vocabulary... (載入單字中...)</div>
+                )}
+              </div>
+            );
+          };
+
           const MenuScreen = () => (
             <div className="absolute inset-0 z-50 bg-gray-900 text-white flex flex-col items-center justify-center space-y-8 p-6">
+              <div className="absolute top-4 left-4">
+                <button 
+                  onClick={() => setGameState('USER_SELECT')}
+                  className="px-4 py-2 bg-gray-800 hover:bg-gray-700 rounded-lg text-sm flex items-center gap-2 border border-gray-700"
+                >
+                  ← 切換帳號
+                </button>
+              </div>
+              
               <h1 className="text-5xl md:text-6xl font-black text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-purple-600 tracking-tighter mb-4">
                 VOCABRIS
               </h1>
+              
+              {currentUser && (
+                <div className="text-2xl text-gray-300 mb-2">
+                  歡迎回來，<span className="font-bold text-blue-400">{currentUser}</span>！
+                </div>
+              )}
               
               {!vocabularyLoaded && (
                 <div className="text-yellow-400 text-sm">Loading vocabulary... (載入單字中...)</div>
@@ -1002,6 +1098,7 @@
               onKeyDown={handleKeyDown}
               ref={gameContainerRef}
             >
+              {gameState === 'USER_SELECT' && <UserSelectScreen />}
               {gameState === 'MENU' && <MenuScreen />}
               {gameState === 'GAMEOVER' && <GameOverScreen />}
 
