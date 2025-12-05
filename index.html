@@ -345,7 +345,6 @@
 
           const [nextWordData, setNextWordData] = useState(null);
           const [inputLocked, setInputLocked] = useState(false);
-          const [pauseDrop, setPauseDrop] = useState(false); // Temporary pause when typing
 
           // New State for Phase B Keyboard Navigation
           const [meaningCursorIndex, setMeaningCursorIndex] = useState(0);
@@ -413,29 +412,9 @@
             
             const item = wordPool[Math.floor(Math.random() * wordPool.length)];
             
-            // Determine missing letters based on level
-            let missingCountRange = [1, 2]; // Elementary: 1 or 2
-            if (lvl === 'intermediate') missingCountRange = [2, 3]; // Intermediate: 2 or 3
-            if (lvl === 'advanced') missingCountRange = [3, 4]; // Advanced: 3 or 4
-
+            // 50% of letters should be missing (空格)
             const wordLength = item.word.length;
-            
-            let minMissing = missingCountRange[0];
-            let maxMissing = missingCountRange[1];
-
-            // Cap maximum missing letters to ensure at least one letter is visible as a hint
-            maxMissing = Math.min(maxMissing, wordLength - 1);
-            
-            minMissing = Math.min(minMissing, maxMissing);
-
-            minMissing = Math.max(1, minMissing);
-
-            const finalMin = Math.min(minMissing, maxMissing);
-            const finalMax = Math.max(minMissing, maxMissing);
-            
-            const missingCount = finalMin === finalMax 
-                ? finalMin 
-                : Math.floor(Math.random() * (finalMax - finalMin + 1)) + finalMin;
+            const missingCount = Math.max(1, Math.floor(wordLength * 0.5));
 
             const indices = new Set();
             while(indices.size < missingCount && indices.size < wordLength) {
@@ -563,9 +542,6 @@
             // Input Error Penalty Freeze
             if (inputLocked) return;
 
-            // Temporary Typing Pause
-            if (pauseDrop) return;
-
             const nextY = currentWord.y + 1;
             
             if (checkCollision(currentWord.x, nextY, currentWord.letters.length, grid)) {
@@ -574,18 +550,10 @@
             } else {
               setCurrentWord(prev => ({ ...prev, y: nextY }));
             }
-          }, [gameState, currentWord, grid, inputLocked, pauseDrop, solidifyWord, checkCollision, spawnNextWord]);
+          }, [gameState, currentWord, grid, inputLocked, solidifyWord, checkCollision, spawnNextWord]);
 
           // Main Interval
           useInterval(gameTick, gameState === 'PLAYING' ? SPEED_SETTINGS[speedMode] : null);
-
-          // Resume dropping after typing pause
-          useEffect(() => {
-            if (pauseDrop) {
-              const timer = setTimeout(() => setPauseDrop(false), 2500); // 2.5s pause after typing
-              return () => clearTimeout(timer);
-            }
-          }, [pauseDrop]);
 
           // Unlock input after penalty
           useEffect(() => {
@@ -638,9 +606,6 @@
                 if (charCode === targetChar) { 
                   const newLetters = [...currentWord.letters];
                   newLetters[firstMissingIndex].input = charCode;
-                  
-                  // Trigger pause logic to give player time to type the next char
-                  setPauseDrop(true);
 
                   // Check if Phase A Complete
                   const isComplete = newLetters.every(l => l.input !== '');
@@ -1067,40 +1032,31 @@
                 {/* RIGHT: Sidebar (35%) */}
                 <div className="w-full md:w-80 flex flex-col gap-4">
                   
-                  {/* Stats Panel */}
-                  <div className="bg-gray-900 p-6 rounded-xl border border-gray-800 shadow-xl flex flex-col gap-4">
-                    <div className="flex justify-between items-end border-b border-gray-800 pb-4">
-                      <div>
-                        <p className="text-xs text-gray-500 uppercase font-bold tracking-wider mb-1">Score (分數)</p>
-                        <div className="text-4xl font-mono text-blue-400">{score}</div>
+                  {/* Stats Panel - Compact */}
+                  <div className="bg-gray-900 p-3 rounded-xl border border-gray-800 shadow-xl">
+                    <div className="flex justify-between items-center gap-3">
+                      <div className="flex-1">
+                        <p className="text-xs text-gray-500 uppercase font-bold tracking-wider mb-1">Score</p>
+                        <div className="text-2xl font-mono text-blue-400">{score}</div>
                       </div>
-                      {Trophy && <Trophy className="text-yellow-600 opacity-50" size={32} />}
-                    </div>
-                    
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <p className="text-xs text-gray-500 uppercase font-bold tracking-wider mb-1">Level (難度)</p>
-                        <div className="text-sm font-semibold text-gray-300 capitalize">{level}</div>
+                      <div className="flex-1">
+                        <p className="text-xs text-gray-500 uppercase font-bold tracking-wider mb-1">Level</p>
+                        <div className="text-xs font-semibold text-gray-300 capitalize">{level}</div>
                       </div>
-                      <div>
-                        <p className="text-xs text-gray-500 uppercase font-bold tracking-wider mb-1">Speed (速度)</p>
-                        <div className="text-sm font-semibold text-gray-300 capitalize">{speedMode}</div>
+                      <div className="flex-1">
+                        <p className="text-xs text-gray-500 uppercase font-bold tracking-wider mb-1">Speed</p>
+                        <div className="text-xs font-semibold text-gray-300 capitalize">{speedMode}</div>
                       </div>
                     </div>
                     
-                    {/* Word Mastery Progress */}
-                    {currentWord && (
-                      <div className="mt-4 pt-4 border-t border-gray-800">
-                        <p className="text-xs text-gray-500 uppercase font-bold tracking-wider mb-2">Current Word (當前單字)</p>
-                        <div className="flex items-center gap-2">
-                          <span className="text-lg font-bold text-white">{currentWord.data.word}</span>
-                          {wordMastery[currentWord.data.word] && (
-                            <div className="flex gap-1">
-                              {[1, 2, 3].map(i => (
-                                <div key={i} className={`w-2 h-2 rounded-full ${i <= wordMastery[currentWord.data.word] ? 'bg-yellow-400' : 'bg-gray-700'}`}></div>
-                              ))}
-                            </div>
-                          )}
+                    {/* Word Mastery Progress - Inline */}
+                    {currentWord && wordMastery[currentWord.data.word] && (
+                      <div className="mt-2 pt-2 border-t border-gray-800 flex items-center justify-between">
+                        <span className="text-xs text-gray-500">Progress:</span>
+                        <div className="flex gap-1">
+                          {[1, 2, 3].map(i => (
+                            <div key={i} className={`w-2 h-2 rounded-full ${i <= wordMastery[currentWord.data.word] ? 'bg-yellow-400' : 'bg-gray-700'}`}></div>
+                          ))}
                         </div>
                       </div>
                     )}
