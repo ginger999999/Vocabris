@@ -823,8 +823,9 @@
                      gridTemplateColumns: `repeat(${GRID_COLS}, 1fr)`,
                      gridTemplateRows: `repeat(${GRID_ROWS}, 1fr)`,
                      aspectRatio: `${GRID_COLS}/${GRID_ROWS}`,
-                     height: '100%',
-                     maxHeight: '80vh'
+                     width: '100%',
+                     maxWidth: '500px',
+                     maxHeight: '70vh'
                    }}>
                 {displayGrid.map((row, rIdx) => (
                   row.map((cell, cIdx) => {
@@ -857,15 +858,6 @@
                     );
                   })
                 ))}
-                
-                {/* Helper Line for Phase B */}
-                {currentWord?.phase === 'B' && (
-                   <div className="absolute inset-0 bg-black/60 flex items-center justify-center z-10 backdrop-blur-sm">
-                     <div className="text-white text-xl font-bold tracking-widest animate-bounce">
-                       CHOOSE MEANING &rarr; (選擇釋義)
-                     </div>
-                   </div>
-                )}
               </div>
             );
           };
@@ -1102,122 +1094,88 @@
               {gameState === 'MENU' && <MenuScreen />}
               {gameState === 'GAMEOVER' && <GameOverScreen />}
 
-              {/* Main Game Layout */}
-              <div className="w-full max-w-5xl h-[95vh] flex flex-col md:flex-row gap-4 p-4">
+              {/* Main Game Layout - Single Column */}
+              <div className="w-full max-w-4xl min-h-screen flex flex-col gap-4 p-4">
                 
-                {/* LEFT: Game Board (65%) */}
-                <div className="flex-1 relative flex flex-col items-center justify-center bg-gray-900 rounded-xl border border-gray-800 shadow-2xl overflow-hidden">
-                  {/* Top Bar inside Board */}
-                  <div className="absolute top-0 left-0 right-0 p-4 flex justify-between items-center z-10 bg-gradient-to-b from-black/80 to-transparent">
-                     <div className="flex items-center gap-2">
-                        <span className={`w-3 h-3 rounded-full ${inputLocked ? 'bg-red-500' : 'bg-green-500'}`}></span>
-                        <span className="text-xs font-mono text-gray-400">STATUS: {gameState}</span>
-                     </div>
-                     {gameState === 'PLAYING' && (
-                        <button onClick={() => setGameState('MENU')} className="text-xs border border-gray-600 px-2 py-1 rounded hover:bg-gray-800">EXIT</button>
-                     )}
-                  </div>
-                  
-                  {renderGrid()}
-                  
-                  {/* Mobile Keyboard below grid inside container if space permits, or outside */}
-                  <div className="md:hidden w-full px-2 pb-2">
-                     <VirtualKeyboard />
-                  </div>
-                </div>
-
-                {/* RIGHT: Sidebar (35%) */}
-                <div className="w-full md:w-80 flex flex-col gap-4">
-                  
-                  {/* Stats Panel - Compact */}
-                  <div className="bg-gray-900 p-3 rounded-xl border border-gray-800 shadow-xl">
-                    <div className="flex justify-between items-center gap-3">
-                      <div className="flex-1">
-                        <p className="text-xs text-gray-500 uppercase font-bold tracking-wider mb-1">Score</p>
-                        <div className="text-2xl font-mono text-blue-400">{score}</div>
-                      </div>
-                      <div className="flex-1">
-                        <p className="text-xs text-gray-500 uppercase font-bold tracking-wider mb-1">Level</p>
-                        <div className="text-xs font-semibold text-gray-300 capitalize">{level}</div>
-                      </div>
-                      <div className="flex-1">
-                        <p className="text-xs text-gray-500 uppercase font-bold tracking-wider mb-1">Speed</p>
-                        <div className="text-xs font-semibold text-gray-300 capitalize">{speedMode}</div>
-                      </div>
+                {/* Top Stats Bar */}
+                <div className="bg-gray-900 p-4 rounded-xl border border-gray-800 shadow-xl flex-shrink-0">
+                  <div className="flex justify-between items-center gap-6">
+                    <div className="flex-1 text-center">
+                      <p className="text-xs text-gray-500 uppercase font-bold tracking-wider mb-1">Score (分數)</p>
+                      <div className="text-3xl font-mono text-blue-400">{score}</div>
                     </div>
-                    
-                    {/* Word Mastery Progress - Inline */}
+                    <div className="flex-1 text-center">
+                      <p className="text-xs text-gray-500 uppercase font-bold tracking-wider mb-1">Level (難度)</p>
+                      <div className="text-lg font-semibold text-gray-300 capitalize">{level}</div>
+                    </div>
+                    <div className="flex-1 text-center">
+                      <p className="text-xs text-gray-500 uppercase font-bold tracking-wider mb-1">Speed (速度)</p>
+                      <div className="text-lg font-semibold text-gray-300 capitalize">{speedMode}</div>
+                    </div>
                     {currentWord && wordMastery[currentWord.data.word] && (
-                      <div className="mt-2 pt-2 border-t border-gray-800 flex items-center justify-between">
-                        <span className="text-xs text-gray-500">Progress:</span>
-                        <div className="flex gap-1">
+                      <div className="flex-1 text-center">
+                        <p className="text-xs text-gray-500 uppercase font-bold tracking-wider mb-1">Progress (進度)</p>
+                        <div className="flex gap-1 justify-center mt-2">
                           {[1, 2, 3].map(i => (
-                            <div key={i} className={`w-2 h-2 rounded-full ${i <= wordMastery[currentWord.data.word] ? 'bg-yellow-400' : 'bg-gray-700'}`}></div>
+                            <div key={i} className={`w-3 h-3 rounded-full ${i <= wordMastery[currentWord.data.word] ? 'bg-yellow-400' : 'bg-gray-700'}`}></div>
                           ))}
                         </div>
                       </div>
                     )}
+                    {gameState === 'PLAYING' && (
+                      <button onClick={() => setGameState('MENU')} className="text-xs border border-gray-600 px-3 py-2 rounded hover:bg-gray-800 ml-4">EXIT</button>
+                    )}
+                  </div>
+                </div>
+
+                {/* Game Board */}
+                <div className="flex-1 relative flex flex-col items-center justify-center bg-gray-900 rounded-xl border border-gray-800 shadow-2xl overflow-visible min-h-[600px]">
+                  {/* Status indicator */}
+                  <div className="absolute top-2 left-2 flex items-center gap-2 z-10">
+                    <span className={`w-3 h-3 rounded-full ${inputLocked ? 'bg-red-500' : 'bg-green-500'}`}></span>
+                    <span className="text-xs font-mono text-gray-400">STATUS: {gameState}</span>
                   </div>
 
-                  {/* Controls / Phase B Quiz Panel */}
-                  <div className="flex-1 bg-gray-900 p-6 rounded-xl border border-gray-800 shadow-xl flex flex-col relative overflow-hidden">
-                    
-                    {/* Phase Indicator */}
-                    <div className="absolute top-0 left-0 right-0 h-1 bg-gray-800">
-                       <div className={`h-full transition-all duration-300 ${currentWord?.phase === 'A' ? 'w-1/2 bg-blue-500' : 'w-full bg-green-500'}`}></div>
+                  {/* Phase A Helper Text */}
+                  {currentWord?.phase === 'A' && (
+                    <div className="absolute top-2 right-2 z-10 p-2 bg-blue-900/80 border border-blue-500/30 rounded-lg backdrop-blur-sm">
+                      <p className="text-blue-300 text-xs">Type missing letters! (輸入缺字母!)</p>
                     </div>
+                  )}
+                  
+                  {renderGrid()}
 
-                    <h3 className="text-sm font-bold text-gray-400 uppercase tracking-widest mb-4 flex items-center gap-2 mt-2">
-                       {currentWord?.phase === 'A' ? (Type && <Type size={16}/>) : (BookOpen && <BookOpen size={16}/>)}
-                       {currentWord?.phase === 'A' ? 'Phase A: Spelling (階段 A: 拼字)' : 'Phase B: Meaning (階段 B: 釋義)'}
-                    </h3>
-
-                    <div className="flex-1 flex flex-col justify-center">
-                      {currentWord?.phase === 'A' ? (
-                        <div className="text-center space-y-4">
-                          <div className="p-4 bg-blue-900/20 border border-blue-500/30 rounded-lg">
-                            <p className="text-blue-300 text-sm">Type the missing letters! (輸入缺少的字母!)</p>
-                            <p className="text-xs text-gray-500 mt-1">(Use Arrow Keys to Move - 使用方向鍵移動)</p>
-                          </div>
-                          {/* Visualizer for current word */}
-                          <div className="flex flex-wrap justify-center gap-1">
-                            {currentWord?.letters.map((l, i) => (
-                              <span key={i} className={`w-6 h-8 flex items-center justify-center rounded ${l.status === 'missing' && l.input === '' ? 'bg-yellow-900/50 border border-yellow-500' : 'bg-gray-800 text-gray-400'}`}>
-                                {l.status === 'filled' ? l.char : (l.input || '_')}
-                              </span>
-                            ))}
-                          </div>
-                          <button onClick={() => speakWord(currentWord?.data.word)} className="text-gray-500 hover:text-white transition-colors flex items-center justify-center gap-2 mx-auto text-sm">
-                            {Volume2 && <Volume2 size={16}/>} Replay Audio (重播發音)
-                          </button>
-                        </div>
-                      ) : currentWord?.phase === 'B' ? (
-                        <div className="space-y-3 animate-in slide-in-from-right duration-300">
-                          <p className="text-center text-xl font-bold text-white mb-4 tracking-widest">{currentWord.data.word}</p>
+                  {/* Phase B - Meaning Selection Overlay (顯示在遊戲中間) */}
+                  {currentWord?.phase === 'B' && (
+                    <div className="absolute inset-0 bg-black/70 flex items-center justify-center z-20 backdrop-blur-sm p-4">
+                      <div className="bg-gray-900 p-6 rounded-2xl border-2 border-purple-500 shadow-2xl max-w-md w-full space-y-4 animate-in slide-in-from-bottom duration-300">
+                        <h3 className="text-center text-2xl font-bold text-white mb-2 tracking-widest">{currentWord.data.word}</h3>
+                        <p className="text-center text-sm text-gray-400 mb-4">Choose the correct meaning (選擇正確釋義)</p>
+                        <div className="space-y-2">
                           {currentWord.data.currentOptions.map((opt, idx) => (
                             <button
                               key={idx}
                               onClick={() => handlePhaseBAnswer(opt)}
-                              // Keyboard navigation highlight
-                              className={`w-full p-4 text-left bg-gray-800 rounded transition-all text-sm md:text-base font-medium text-gray-200 border-l-4 
+                              className={`w-full p-4 text-left rounded-lg transition-all text-base font-medium border-2
                                 ${idx === meaningCursorIndex 
-                                  ? 'bg-purple-700/50 border-purple-400 ring-2 ring-purple-400' 
-                                  : 'hover:bg-gray-700 hover:border-l-4 hover:border-green-500 border-transparent'
+                                  ? 'bg-purple-600 border-purple-400 text-white scale-105 shadow-lg' 
+                                  : 'bg-gray-800 border-gray-700 text-gray-200 hover:bg-gray-700 hover:border-purple-500'
                                 }`}
                             >
                               {idx + 1}. {opt}
                             </button>
                           ))}
                         </div>
-                      ) : (
-                        <div className="text-center text-gray-600 text-sm italic">
-                          Waiting for game start... (等待遊戲開始...)
-                        </div>
-                      )}
+                      </div>
                     </div>
+                  )}
+                  
+                  {/* Mobile Keyboard */}
+                  <div className="md:hidden w-full px-2 pb-2">
+                     <VirtualKeyboard />
                   </div>
-
                 </div>
+
               </div>
             </div>
           );
