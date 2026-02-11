@@ -57,99 +57,150 @@
 
 
         /**
-         * MOCK DATA & CONSTANTS
-         * 模擬單字庫與遊戲常數
+         * WORD DATABASE & CONSTANTS
+         * 單字庫與遊戲常數
          */
 
-        const WORD_DATABASE = {
+        // Will be loaded from vocabulary.json
+        let WORD_DATABASE = {
           elementary: [
-            // --- Animals (動物) ---
-            { word: "BEAR", meaning: "熊", options: ["鳥", "豬", "獅子"] },
-            { word: "BIRD", meaning: "鳥", options: ["魚", "貓", "狗"] },
-            { word: "CAT", meaning: "貓", options: ["老虎", "老鼠", "兔子"] },
-            { word: "CHICKEN", meaning: "雞", options: ["鴨子", "鵝", "火雞"] },
-            { word: "DOG", meaning: "狗", options: ["貓", "狼", "狐狸"] },
-            { word: "ELEPHANT", meaning: "大象", options: ["河馬", "犀牛", "長頸鹿"] },
-            { word: "FISH", meaning: "魚", options: ["蝦子", "螃蟹", "烏龜"] },
-            { word: "LION", meaning: "獅子", options: ["老虎", "豹", "熊"] },
-            { word: "MONKEY", meaning: "猴子", options: ["猩猩", "人類", "松鼠"] },
-            { word: "PIG", meaning: "豬", options: ["牛", "羊", "馬"] },
-            { word: "RABBIT", meaning: "兔子", options: ["老鼠", "松鼠", "袋鼠"] },
-            { word: "SNAKE", meaning: "蛇", options: ["蜥蜴", "鱷魚", "恐龍"] },
-            { word: "TIGER", meaning: "老虎", options: ["獅子", "貓", "豹"] },
-            { word: "ZEBRA", meaning: "斑馬", options: ["馬", "驢子", "鹿"] },
+            // 基於教育部國小英語常用300字 (參考台灣國小英語課程)
             
-            // --- Food (食物) ---
-            { word: "APPLE", meaning: "蘋果", options: ["香蕉", "橘子", "葡萄"] },
-            { word: "BANANA", meaning: "香蕉", options: ["鳳梨", "西瓜", "木瓜"] },
-            { word: "BREAD", meaning: "麵包", options: ["蛋糕", "餅乾", "糖果"] },
-            { word: "CAKE", meaning: "蛋糕", options: ["麵包", "派", "布丁"] },
+            // --- 基本名詞 A-C ---
+            { word: "ANT", meaning: "螞蟻", options: ["蜜蜂", "蝴蝶", "蜘蛛"] },
+            { word: "ARM", meaning: "手臂", options: ["腿", "手", "腳"] },
+            { word: "BAG", meaning: "袋子", options: ["盒子", "箱子", "籃子"] },
+            { word: "BALL", meaning: "球", options: ["玩具", "遊戲", "運動"] },
+            { word: "BED", meaning: "床", options: ["椅子", "桌子", "沙發"] },
+            { word: "BEE", meaning: "蜜蜂", options: ["螞蟻", "蝴蝶", "蜻蜓"] },
+            { word: "BIRD", meaning: "鳥", options: ["魚", "狗", "貓"] },
+            { word: "BOOK", meaning: "書", options: ["本子", "紙", "筆"] },
+            { word: "BOX", meaning: "箱子", options: ["袋子", "盒子", "籃子"] },
+            { word: "BOY", meaning: "男孩", options: ["女孩", "嬰兒", "大人"] },
+            { word: "BUS", meaning: "公車", options: ["汽車", "火車", "飛機"] },
+            { word: "CAKE", meaning: "蛋糕", options: ["餅乾", "糖果", "麵包"] },
+            { word: "CAR", meaning: "汽車", options: ["公車", "卡車", "火車"] },
+            { word: "CAT", meaning: "貓", options: ["狗", "鳥", "魚"] },
+            { word: "COW", meaning: "牛", options: ["馬", "羊", "豬"] },
+            { word: "CUP", meaning: "杯子", options: ["碗", "盤子", "湯匙"] },
+            
+            // --- 基本名詞 D-H ---
+            { word: "DAY", meaning: "白天", options: ["晚上", "早上", "中午"] },
+            { word: "DESK", meaning: "書桌", options: ["椅子", "桌子", "床"] },
+            { word: "DOG", meaning: "狗", options: ["貓", "鳥", "魚"] },
+            { word: "DOOR", meaning: "門", options: ["窗", "牆", "屋頂"] },
+            { word: "EAR", meaning: "耳朵", options: ["眼睛", "鼻子", "嘴巴"] },
             { word: "EGG", meaning: "蛋", options: ["肉", "魚", "菜"] },
-            { word: "HAMBURGER", meaning: "漢堡", options: ["三明治", "熱狗", "披薩"] },
-            { word: "HOTDOG", meaning: "熱狗", options: ["香腸", "火腿", "培根"] },
-            { word: "ICECREAM", meaning: "冰淇淋", options: ["冰棒", "雪糕", "聖代"] },
-            { word: "JUICE", meaning: "果汁", options: ["牛奶", "咖啡", "茶"] },
-            { word: "MILK", meaning: "牛奶", options: ["豆漿", "羊奶", "優酪乳"] },
-            { word: "PIZZA", meaning: "披薩", options: ["義大利麵", "燉飯", "千層麵"] },
-            { word: "RICE", meaning: "米飯", options: ["麵條", "冬粉", "米粉"] },
-            { word: "SANDWICH", meaning: "三明治", options: ["漢堡", "吐司", "貝果"] },
-            { word: "SOUP", meaning: "湯", options: ["粥", "火鍋", "燉菜"] },
-            { word: "TEA", meaning: "茶", options: ["咖啡", "果汁", "汽水"] },
-            { word: "WATER", meaning: "水", options: ["酒", "醋", "油"] },
-
-            // --- Family (家庭) ---
-            { word: "FATHER", meaning: "父親", options: ["母親", "兄弟", "姐妹"] },
-            { word: "MOTHER", meaning: "母親", options: ["父親", "阿姨", "叔叔"] },
-            { word: "BROTHER", meaning: "兄弟", options: ["姐妹", "朋友", "同學"] },
-            { word: "SISTER", meaning: "姐妹", options: ["兄弟", "表親", "鄰居"] },
-            { word: "GRANDPA", meaning: "爺爺/外公", options: ["奶奶", "爸爸", "叔叔"] },
-            { word: "GRANDMA", meaning: "奶奶/外婆", options: ["爺爺", "媽媽", "阿姨"] },
-
-            // --- School (學校) ---
-            { word: "BAG", meaning: "袋子/書包", options: ["盒子", "籃子", "箱子"] },
-            { word: "BOOK", meaning: "書", options: ["筆記本", "紙", "雜誌"] },
-            { word: "CHAIR", meaning: "椅子", options: ["桌子", "沙發", "床"] },
-            { word: "CLASS", meaning: "班級/課", options: ["學校", "操場", "辦公室"] },
-            { word: "DESK", meaning: "書桌", options: ["椅子", "黑板", "電腦"] },
-            { word: "ERASER", meaning: "橡皮擦", options: ["鉛筆", "尺", "膠水"] },
-            { word: "MARKER", meaning: "麥克筆", options: ["蠟筆", "色鉛筆", "水彩"] },
-            { word: "NOTEBOOK", meaning: "筆記本", options: ["課本", "字典", "聯絡簿"] },
-            { word: "PEN", meaning: "原子筆", options: ["鉛筆", "毛筆", "鋼筆"] },
-            { word: "PENCIL", meaning: "鉛筆", options: ["原子筆", "蠟筆", "粉筆"] },
-            { word: "RULER", meaning: "尺", options: ["圓規", "量角器", "三角板"] },
-            { word: "STUDENT", meaning: "學生", options: ["老師", "校長", "家長"] },
-            { word: "TEACHER", meaning: "老師", options: ["學生", "教官", "護士"] },
-
-            // --- Body (身體) ---
             { word: "EYE", meaning: "眼睛", options: ["耳朵", "鼻子", "嘴巴"] },
-            { word: "HAND", meaning: "手", options: ["腳", "腿", "手臂"] },
-            { word: "HEAD", meaning: "頭", options: ["脖子", "肩膀", "背"] },
-            { word: "LEG", meaning: "腿", options: ["手", "腳掌", "膝蓋"] },
+            { word: "FACE", meaning: "臉", options: ["頭", "手", "腳"] },
+            { word: "FISH", meaning: "魚", options: ["鳥", "狗", "貓"] },
+            { word: "GIRL", meaning: "女孩", options: ["男孩", "嬰兒", "大人"] },
+            { word: "HAT", meaning: "帽子", options: ["衣服", "鞋子", "襪子"] },
+            { word: "HEAD", meaning: "頭", options: ["臉", "手", "腳"] },
+            { word: "HOUSE", meaning: "房子", options: ["學校", "商店", "醫院"] },
+            
+            // --- 基本名詞 L-R ---
+            { word: "LEG", meaning: "腿", options: ["手", "腳", "臂"] },
+            { word: "LION", meaning: "獅子", options: ["老虎", "熊", "狼"] },
+            { word: "MILK", meaning: "牛奶", options: ["水", "果汁", "茶"] },
             { word: "MOUTH", meaning: "嘴巴", options: ["眼睛", "鼻子", "耳朵"] },
-            { word: "NOSE", meaning: "鼻子", options: ["嘴巴", "眼睛", "耳朵"] },
-
-            // --- Colors (顏色) ---
-            { word: "BLACK", meaning: "黑色", options: ["白色", "灰色", "藍色"] },
-            { word: "BLUE", meaning: "藍色", options: ["綠色", "紅色", "黃色"] },
-            { word: "GREEN", meaning: "綠色", options: ["藍色", "黃色", "紫色"] },
-            { word: "RED", meaning: "紅色", options: ["橘色", "粉紅色", "紫色"] },
-            { word: "WHITE", meaning: "白色", options: ["黑色", "灰色", "銀色"] },
-            { word: "YELLOW", meaning: "黃色", options: ["橘色", "綠色", "棕色"] },
-
-            // --- Adjectives (形容詞) ---
+            { word: "NAME", meaning: "名字", options: ["年齡", "生日", "地址"] },
+            { word: "NOSE", meaning: "鼻子", options: ["眼睛", "嘴巴", "耳朵"] },
+            { word: "PEN", meaning: "筆", options: ["書", "本子", "尺"] },
+            { word: "PIG", meaning: "豬", options: ["牛", "羊", "馬"] },
+            { word: "RAIN", meaning: "雨", options: ["雪", "風", "雲"] },
+            { word: "RICE", meaning: "米飯", options: ["麵", "麵包", "餅乾"] },
+            { word: "ROOM", meaning: "房間", options: ["客廳", "廚房", "浴室"] },
+            
+            // --- 基本名詞 S-Z ---
+            { word: "SCHOOL", meaning: "學校", options: ["家", "公園", "商店"] },
+            { word: "SISTER", meaning: "姐妹", options: ["哥哥", "爸爸", "媽媽"] },
+            { word: "SNAKE", meaning: "蛇", options: ["魚", "鳥", "老鼠"] },
+            { word: "SNOW", meaning: "雪", options: ["雨", "風", "雲"] },
+            { word: "SONG", meaning: "歌曲", options: ["音樂", "舞蹈", "故事"] },
+            { word: "SOUP", meaning: "湯", options: ["粥", "飯", "麵"] },
+            { word: "SUN", meaning: "太陽", options: ["月亮", "星星", "雲"] },
+            { word: "TABLE", meaning: "桌子", options: ["椅子", "床", "沙發"] },
+            { word: "TEA", meaning: "茶", options: ["咖啡", "果汁", "水"] },
+            { word: "TIGER", meaning: "老虎", options: ["獅子", "熊", "豹"] },
+            { word: "TOY", meaning: "玩具", options: ["遊戲", "書", "球"] },
+            { word: "TREE", meaning: "樹", options: ["花", "草", "葉子"] },
+            { word: "WATER", meaning: "水", options: ["果汁", "牛奶", "茶"] },
+            { word: "WINDOW", meaning: "窗戶", options: ["門", "牆", "屋頂"] },
+            { word: "ZOO", meaning: "動物園", options: ["公園", "學校", "商店"] },
+            
+            // --- 食物 ---
+            { word: "APPLE", meaning: "蘋果", options: ["香蕉", "橘子", "西瓜"] },
+            { word: "BANANA", meaning: "香蕉", options: ["蘋果", "橘子", "葡萄"] },
+            { word: "BREAD", meaning: "麵包", options: ["蛋糕", "餅乾", "糖果"] },
+            { word: "CHICKEN", meaning: "雞肉", options: ["豬肉", "牛肉", "魚肉"] },
+            { word: "COOKIE", meaning: "餅乾", options: ["蛋糕", "糖果", "麵包"] },
+            
+            // --- 顏色 ---
+            { word: "BLACK", meaning: "黑色", options: ["白色", "灰色", "棕色"] },
+            { word: "BLUE", meaning: "藍色", options: ["紅色", "綠色", "黃色"] },
+            { word: "BROWN", meaning: "棕色", options: ["黑色", "灰色", "白色"] },
+            { word: "GREEN", meaning: "綠色", options: ["藍色", "黃色", "紅色"] },
+            { word: "PINK", meaning: "粉紅色", options: ["紅色", "紫色", "橘色"] },
+            { word: "RED", meaning: "紅色", options: ["藍色", "綠色", "黃色"] },
+            { word: "WHITE", meaning: "白色", options: ["黑色", "灰色", "棕色"] },
+            { word: "YELLOW", meaning: "黃色", options: ["綠色", "藍色", "橘色"] },
+            
+            // --- 數字 ---
+            { word: "ONE", meaning: "一", options: ["二", "三", "零"] },
+            { word: "TWO", meaning: "二", options: ["一", "三", "四"] },
+            { word: "THREE", meaning: "三", options: ["二", "四", "五"] },
+            { word: "FOUR", meaning: "四", options: ["三", "五", "六"] },
+            { word: "FIVE", meaning: "五", options: ["四", "六", "七"] },
+            { word: "SIX", meaning: "六", options: ["五", "七", "八"] },
+            { word: "SEVEN", meaning: "七", options: ["六", "八", "九"] },
+            { word: "EIGHT", meaning: "八", options: ["七", "九", "十"] },
+            { word: "NINE", meaning: "九", options: ["八", "十", "七"] },
+            { word: "TEN", meaning: "十", options: ["九", "八", "十一"] },
+            
+            // --- 家庭 ---
+            { word: "FATHER", meaning: "爸爸", options: ["媽媽", "哥哥", "姐姐"] },
+            { word: "MOTHER", meaning: "媽媽", options: ["爸爸", "姐姐", "奶奶"] },
+            { word: "BROTHER", meaning: "兄弟", options: ["姐妹", "爸爸", "媽媽"] },
+            { word: "BABY", meaning: "嬰兒", options: ["小孩", "大人", "老人"] },
+            
+            // --- 形容詞 ---
             { word: "BIG", meaning: "大的", options: ["小的", "高的", "矮的"] },
-            { word: "SMALL", meaning: "小的", options: ["大的", "長的", "短的"] },
-            { word: "COOL", meaning: "涼爽的/酷", options: ["熱的", "溫暖的", "冷的"] },
-            { word: "CUTE", meaning: "可愛的", options: ["醜陋的", "可怕的", "兇猛的"] },
-            { word: "HAPPY", meaning: "快樂的", options: ["傷心的", "生氣的", "緊張的"] },
-            { word: "HOT", meaning: "熱的", options: ["冷的", "涼的", "冰的"] },
-
-            // --- Nature/Place (地點/自然) ---
-            { word: "PARK", meaning: "公園", options: ["花園", "動物園", "遊樂園"] },
-            { word: "ZOO", meaning: "動物園", options: ["公園", "博物館", "學校"] },
-            { word: "HOME", meaning: "家", options: ["學校", "公司", "商店"] },
-            { word: "FLOWER", meaning: "花", options: ["草", "樹", "葉子"] },
-            { word: "TREE", meaning: "樹", options: ["花", "草", "森林"] }
+            { word: "COLD", meaning: "冷的", options: ["熱的", "溫暖的", "涼的"] },
+            { word: "GOOD", meaning: "好的", options: ["壞的", "棒的", "差的"] },
+            { word: "HAPPY", meaning: "快樂的", options: ["傷心的", "生氣的", "害怕的"] },
+            { word: "HOT", meaning: "熱的", options: ["冷的", "溫暖的", "涼的"] },
+            { word: "LONG", meaning: "長的", options: ["短的", "高的", "矮的"] },
+            { word: "NEW", meaning: "新的", options: ["舊的", "老的", "破的"] },
+            { word: "OLD", meaning: "舊的", options: ["新的", "老的", "年輕的"] },
+            { word: "SAD", meaning: "傷心的", options: ["快樂的", "生氣的", "害怕的"] },
+            { word: "SHORT", meaning: "短的", options: ["長的", "高的", "矮的"] },
+            { word: "SMALL", meaning: "小的", options: ["大的", "高的", "矮的"] },
+            { word: "TALL", meaning: "高的", options: ["矮的", "短的", "長的"] },
+            
+            // --- 動詞 ---
+            { word: "EAT", meaning: "吃", options: ["喝", "睡", "玩"] },
+            { word: "DRINK", meaning: "喝", options: ["吃", "睡", "玩"] },
+            { word: "RUN", meaning: "跑", options: ["走", "跳", "飛"] },
+            { word: "JUMP", meaning: "跳", options: ["跑", "走", "飛"] },
+            { word: "WALK", meaning: "走", options: ["跑", "跳", "飛"] },
+            { word: "SWIM", meaning: "游泳", options: ["跑步", "跳舞", "唱歌"] },
+            { word: "SING", meaning: "唱歌", options: ["跳舞", "畫畫", "讀書"] },
+            { word: "READ", meaning: "讀", options: ["寫", "畫", "唱"] },
+            { word: "WRITE", meaning: "寫", options: ["讀", "畫", "唱"] },
+            { word: "SLEEP", meaning: "睡覺", options: ["吃飯", "玩耍", "學習"] },
+            
+            // --- 地點 ---
+            { word: "HOME", meaning: "家", options: ["學校", "公園", "商店"] },
+            { word: "PARK", meaning: "公園", options: ["學校", "家", "商店"] },
+            { word: "STORE", meaning: "商店", options: ["學校", "家", "公園"] },
+            
+            // --- 時間/天氣 ---
+            { word: "MORNING", meaning: "早上", options: ["中午", "晚上", "夜晚"] },
+            { word: "NIGHT", meaning: "夜晚", options: ["早上", "中午", "下午"] },
+            { word: "TODAY", meaning: "今天", options: ["昨天", "明天", "後天"] },
+            { word: "MONDAY", meaning: "星期一", options: ["星期二", "星期三", "星期日"] },
+            { word: "SUNDAY", meaning: "星期日", options: ["星期一", "星期六", "星期五"] }
           ],
           intermediate: [
             // --- Nouns (General) ---
@@ -270,10 +321,19 @@
 
         function VocabrisApp() {
           // --- Game State ---
-          const [gameState, setGameState] = useState('MENU'); // MENU, PLAYING, GAMEOVER
+          const [currentUser, setCurrentUser] = useState(null); // 當前選擇的帳號
+          const [gameState, setGameState] = useState('USER_SELECT'); // USER_SELECT, MENU, PLAYING, GAMEOVER
           const [level, setLevel] = useState('elementary');
           const [speedMode, setSpeedMode] = useState('normal');
           const [score, setScore] = useState(0);
+          const [vocabularyLoaded, setVocabularyLoaded] = useState(false);
+          
+          // --- Word Mastery Tracking ---
+          // Format: { "WORD": correctCount } - 根據當前用戶從 vocabulary.json 載入
+          const [wordMastery, setWordMastery] = useState({});
+          
+          // Mastered words (answered correctly 3 times)
+          const [masteredWords, setMasteredWords] = useState([]);
           
           // Board State
           // grid represents the "dead" blocks (stacked). 0 = empty, string = letter content
@@ -293,13 +353,82 @@
 
           const [nextWordData, setNextWordData] = useState(null);
           const [inputLocked, setInputLocked] = useState(false);
-          const [pauseDrop, setPauseDrop] = useState(false); // Temporary pause when typing
 
           // New State for Phase B Keyboard Navigation
           const [meaningCursorIndex, setMeaningCursorIndex] = useState(0);
 
           // Refs for audio and focus
           const gameContainerRef = useRef(null);
+          
+          // --- Load Vocabulary from JSON file ---
+          useEffect(() => {
+            fetch('./vocabulary.json')
+              .then(response => response.json())
+              .then(data => {
+                WORD_DATABASE = data;
+                setVocabularyLoaded(true);
+              })
+              .catch(error => {
+                console.error('Error loading vocabulary:', error);
+                // Keep the default vocabulary if loading fails
+                setVocabularyLoaded(true);
+              });
+          }, []);
+          
+          // --- Load User Progress from vocabulary data when user is selected ---
+          useEffect(() => {
+            if (currentUser && vocabularyLoaded && WORD_DATABASE) {
+              const mastery = {};
+              const mastered = [];
+              
+              // 從 WORD_DATABASE 載入當前用戶的學習進度
+              Object.keys(WORD_DATABASE).forEach(level => {
+                WORD_DATABASE[level].forEach(wordData => {
+                  const progress = parseInt(wordData[currentUser] || '0');
+                  if (progress > 0 && progress < 3) {
+                    mastery[wordData.word] = progress;
+                  } else if (progress >= 3) {
+                    mastered.push(wordData.word);
+                  }
+                });
+              });
+              
+              setWordMastery(mastery);
+              setMasteredWords(mastered);
+            }
+          }, [currentUser, vocabularyLoaded]);
+          
+          // --- Save Progress - Update vocabulary data and trigger backend save ---
+          const saveProgress = useCallback(() => {
+            if (!currentUser || !WORD_DATABASE) return;
+            
+            // 更新 WORD_DATABASE 中的用戶進度
+            Object.keys(WORD_DATABASE).forEach(level => {
+              WORD_DATABASE[level].forEach(wordData => {
+                const word = wordData.word;
+                if (masteredWords.includes(word)) {
+                  wordData[currentUser] = '3';
+                } else if (wordMastery[word]) {
+                  wordData[currentUser] = String(wordMastery[word]);
+                } else {
+                  wordData[currentUser] = '0';
+                }
+              });
+            });
+            
+            // 保存到 localStorage 作為備份
+            localStorage.setItem(`vocabris_mastery_${currentUser}`, JSON.stringify(wordMastery));
+            localStorage.setItem(`vocabris_mastered_${currentUser}`, JSON.stringify(masteredWords));
+            
+            // TODO: 可以在這裡添加 API 調用來保存回 CSV 檔案
+          }, [currentUser, wordMastery, masteredWords]);
+          
+          // 當進度變化時自動保存
+          useEffect(() => {
+            if (currentUser) {
+              saveProgress();
+            }
+          }, [wordMastery, masteredWords, currentUser, saveProgress]);
           
           // --- Focus Management (確保遊戲容器保持焦點) ---
           useEffect(() => {
@@ -328,31 +457,18 @@
 
           const generateWordObj = (lvl) => {
             const list = WORD_DATABASE[lvl];
-            const item = list[Math.floor(Math.random() * list.length)];
             
-            // Determine missing letters based on level
-            let missingCountRange = [1, 2]; // Elementary: 1 or 2
-            if (lvl === 'intermediate') missingCountRange = [2, 3]; // Intermediate: 2 or 3
-            if (lvl === 'advanced') missingCountRange = [3, 4]; // Advanced: 3 or 4
-
+            // Filter out mastered words
+            const availableWords = list.filter(item => !masteredWords.includes(item.word));
+            
+            // If all words are mastered, use all words again
+            const wordPool = availableWords.length > 0 ? availableWords : list;
+            
+            const item = wordPool[Math.floor(Math.random() * wordPool.length)];
+            
+            // 50% of letters should be missing (空格)
             const wordLength = item.word.length;
-            
-            let minMissing = missingCountRange[0];
-            let maxMissing = missingCountRange[1];
-
-            // Cap maximum missing letters to ensure at least one letter is visible as a hint
-            maxMissing = Math.min(maxMissing, wordLength - 1);
-            
-            minMissing = Math.min(minMissing, maxMissing);
-
-            minMissing = Math.max(1, minMissing);
-
-            const finalMin = Math.min(minMissing, maxMissing);
-            const finalMax = Math.max(minMissing, maxMissing);
-            
-            const missingCount = finalMin === finalMax 
-                ? finalMin 
-                : Math.floor(Math.random() * (finalMax - finalMin + 1)) + finalMin;
+            const missingCount = Math.max(1, Math.floor(wordLength * 0.5));
 
             const indices = new Set();
             while(indices.size < missingCount && indices.size < wordLength) {
@@ -480,9 +596,6 @@
             // Input Error Penalty Freeze
             if (inputLocked) return;
 
-            // Temporary Typing Pause
-            if (pauseDrop) return;
-
             const nextY = currentWord.y + 1;
             
             if (checkCollision(currentWord.x, nextY, currentWord.letters.length, grid)) {
@@ -491,18 +604,10 @@
             } else {
               setCurrentWord(prev => ({ ...prev, y: nextY }));
             }
-          }, [gameState, currentWord, grid, inputLocked, pauseDrop, solidifyWord, checkCollision, spawnNextWord]);
+          }, [gameState, currentWord, grid, inputLocked, solidifyWord, checkCollision, spawnNextWord]);
 
           // Main Interval
           useInterval(gameTick, gameState === 'PLAYING' ? SPEED_SETTINGS[speedMode] : null);
-
-          // Resume dropping after typing pause
-          useEffect(() => {
-            if (pauseDrop) {
-              const timer = setTimeout(() => setPauseDrop(false), 2500); // 2.5s pause after typing
-              return () => clearTimeout(timer);
-            }
-          }, [pauseDrop]);
 
           // Unlock input after penalty
           useEffect(() => {
@@ -555,9 +660,6 @@
                 if (charCode === targetChar) { 
                   const newLetters = [...currentWord.letters];
                   newLetters[firstMissingIndex].input = charCode;
-                  
-                  // Trigger pause logic to give player time to type the next char
-                  setPauseDrop(true);
 
                   // Check if Phase A Complete
                   const isComplete = newLetters.every(l => l.input !== '');
@@ -614,14 +716,81 @@
             if (selectedMeaning === currentWord.data.meaning) {
               // Success!
               setScore(prev => prev + (currentWord.letters.length * 100));
+              
+              // Update word mastery tracking
+              const word = currentWord.data.word;
+              const currentCount = wordMastery[word] || 0;
+              const newCount = currentCount + 1;
+              
+              if (newCount >= 3) {
+                // Mastered! Add to mastered list
+                setMasteredWords(prev => {
+                  if (!prev.includes(word)) {
+                    return [...prev, word];
+                  }
+                  return prev;
+                });
+                // Remove from mastery tracking
+                setWordMastery(prev => {
+                  const updated = { ...prev };
+                  delete updated[word];
+                  return updated;
+                });
+              } else {
+                // Update mastery count
+                setWordMastery(prev => ({
+                  ...prev,
+                  [word]: newCount
+                }));
+              }
+              
               // Word disappears (Cleared) instead of stacking
               spawnNextWord();
             } else {
-              // Failed Phase B -> Solidify as punishment
-              solidifyWord();
+              // Failed Phase B -> Reset mastery count for this word
+              const word = currentWord.data.word;
+              setWordMastery(prev => {
+                const updated = { ...prev };
+                delete updated[word];
+                return updated;
+              });
+              
+              // Drop to bottom immediately
+              dropToBottom();
             }
             // Always reset cursor on answer
             setMeaningCursorIndex(0);
+          };
+
+          const dropToBottom = () => {
+            // Find the lowest possible position for the word
+            const { x, letters } = currentWord;
+            let finalY = currentWord.y;
+            
+            // Keep moving down until collision
+            while (finalY < GRID_ROWS && !checkCollision(x, finalY + 1, letters.length, grid)) {
+              finalY++;
+            }
+            
+            // Update position and solidify
+            setCurrentWord(prev => ({ ...prev, y: finalY }));
+            
+            // Use setTimeout to ensure the visual update happens before solidifying
+            setTimeout(() => {
+              const newGrid = [...grid];
+              const { x, letters } = currentWord;
+              
+              letters.forEach((l, idx) => {
+                const gridY = finalY;
+                const gridX = x + idx;
+                if (gridY >= 0 && gridY < GRID_ROWS && gridX >= 0 && gridX < GRID_COLS) {
+                  newGrid[gridY][gridX] = l.char;
+                }
+              });
+              
+              setGrid(newGrid);
+              spawnNextWord();
+            }, 100);
           };
 
           // --- Rendering Helpers ---
@@ -667,8 +836,9 @@
                      gridTemplateColumns: `repeat(${GRID_COLS}, 1fr)`,
                      gridTemplateRows: `repeat(${GRID_ROWS}, 1fr)`,
                      aspectRatio: `${GRID_COLS}/${GRID_ROWS}`,
-                     height: '100%',
-                     maxHeight: '80vh'
+                     width: '100%',
+                     maxWidth: '500px',
+                     maxHeight: '70vh'
                    }}>
                 {displayGrid.map((row, rIdx) => (
                   row.map((cell, cIdx) => {
@@ -701,26 +871,76 @@
                     );
                   })
                 ))}
-                
-                {/* Helper Line for Phase B */}
-                {currentWord?.phase === 'B' && (
-                   <div className="absolute inset-0 bg-black/60 flex items-center justify-center z-10 backdrop-blur-sm">
-                     <div className="text-white text-xl font-bold tracking-widest animate-bounce">
-                       CHOOSE MEANING &rarr; (選擇釋義)
-                     </div>
-                   </div>
-                )}
               </div>
             );
           };
 
           // --- UI Components ---
 
+          // 帳號選擇畫面
+          const UserSelectScreen = () => {
+            const users = [
+              { name: 'Ginger', color: 'from-pink-500 to-rose-600', icon: '🌸' },
+              { name: 'River', color: 'from-blue-500 to-cyan-600', icon: '🌊' },
+              { name: 'Sigma', color: 'from-purple-500 to-violet-600', icon: '⚡' }
+            ];
+
+            return (
+              <div className="absolute inset-0 z-50 bg-gray-900 text-white flex flex-col items-center justify-center space-y-8 p-6">
+                <h1 className="text-5xl md:text-6xl font-black text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-purple-600 tracking-tighter mb-4">
+                  VOCABRIS
+                </h1>
+                
+                <p className="text-xl text-gray-400 mb-8">選擇你的帳號 | Choose Your Account</p>
+                
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 w-full max-w-4xl">
+                  {users.map(user => (
+                    <button
+                      key={user.name}
+                      onClick={() => {
+                        setCurrentUser(user.name);
+                        setGameState('MENU');
+                      }}
+                      className={`bg-gradient-to-br ${user.color} p-8 rounded-2xl shadow-2xl hover:scale-105 transition-all duration-300 flex flex-col items-center gap-4 border-2 border-white/20`}
+                    >
+                      <div className="text-6xl">{user.icon}</div>
+                      <div className="text-3xl font-bold">{user.name}</div>
+                      <div className="text-sm text-white/80">點擊開始 | Click to Start</div>
+                    </button>
+                  ))}
+                </div>
+                
+                {!vocabularyLoaded && (
+                  <div className="text-yellow-400 text-sm mt-8">Loading vocabulary... (載入單字中...)</div>
+                )}
+              </div>
+            );
+          };
+
           const MenuScreen = () => (
             <div className="absolute inset-0 z-50 bg-gray-900 text-white flex flex-col items-center justify-center space-y-8 p-6">
+              <div className="absolute top-4 left-4">
+                <button 
+                  onClick={() => setGameState('USER_SELECT')}
+                  className="px-4 py-2 bg-gray-800 hover:bg-gray-700 rounded-lg text-sm flex items-center gap-2 border border-gray-700"
+                >
+                  ← 切換帳號
+                </button>
+              </div>
+              
               <h1 className="text-5xl md:text-6xl font-black text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-purple-600 tracking-tighter mb-4">
                 VOCABRIS
               </h1>
+              
+              {currentUser && (
+                <div className="text-2xl text-gray-300 mb-2">
+                  歡迎回來，<span className="font-bold text-blue-400">{currentUser}</span>！
+                </div>
+              )}
+              
+              {!vocabularyLoaded && (
+                <div className="text-yellow-400 text-sm">Loading vocabulary... (載入單字中...)</div>
+              )}
               
               <div className="w-full max-w-md space-y-6 bg-gray-800 p-8 rounded-2xl border border-gray-700 shadow-2xl">
                 {/* Level Selection */}
@@ -769,10 +989,43 @@
 
                 <button 
                   onClick={startGame}
-                  className="w-full py-4 mt-4 bg-gradient-to-r from-blue-600 to-purple-600 rounded-xl font-black text-xl hover:scale-[1.02] transition-transform flex items-center justify-center gap-2 shadow-lg shadow-purple-900/50"
+                  disabled={!vocabularyLoaded}
+                  className={`w-full py-4 mt-4 rounded-xl font-black text-xl transition-transform flex items-center justify-center gap-2 shadow-lg ${
+                    vocabularyLoaded 
+                      ? 'bg-gradient-to-r from-blue-600 to-purple-600 hover:scale-[1.02] shadow-purple-900/50' 
+                      : 'bg-gray-600 cursor-not-allowed'
+                  }`}
                 >
                   {Play && <Play fill="currentColor" />} START GAME
                 </button>
+                
+                {/* Mastery Stats */}
+                <div className="mt-4 pt-4 border-t border-gray-700">
+                  <p className="text-xs text-gray-500 uppercase font-bold tracking-wider mb-2">Progress (進度)</p>
+                  <div className="grid grid-cols-2 gap-2 text-sm">
+                    <div className="bg-gray-700 p-2 rounded">
+                      <span className="text-gray-400">Learning:</span>
+                      <span className="ml-2 text-yellow-400 font-bold">{Object.keys(wordMastery).length}</span>
+                    </div>
+                    <div className="bg-gray-700 p-2 rounded">
+                      <span className="text-gray-400">Mastered:</span>
+                      <span className="ml-2 text-green-400 font-bold">{masteredWords.length}</span>
+                    </div>
+                  </div>
+                  {Object.keys(wordMastery).length > 0 && (
+                    <button 
+                      onClick={() => {
+                        if (window.confirm('Clear all progress? (清除所有進度?)')) {
+                          setWordMastery({});
+                          setMasteredWords([]);
+                        }
+                      }}
+                      className="w-full mt-2 py-2 text-xs bg-red-900/30 hover:bg-red-900/50 rounded border border-red-700 text-red-300"
+                    >
+                      Reset Progress (重置進度)
+                    </button>
+                  )}
+                </div>
               </div>
             </div>
           );
@@ -850,128 +1103,92 @@
               onKeyDown={handleKeyDown}
               ref={gameContainerRef}
             >
+              {gameState === 'USER_SELECT' && <UserSelectScreen />}
               {gameState === 'MENU' && <MenuScreen />}
               {gameState === 'GAMEOVER' && <GameOverScreen />}
 
-              {/* Main Game Layout */}
-              <div className="w-full max-w-5xl min-h-screen md:h-[95vh] flex flex-col md:flex-row gap-2 md:gap-4 p-2 md:p-4">
+              {/* Main Game Layout - Single Column */}
+              <div className="w-full max-w-4xl min-h-screen flex flex-col gap-4 p-4">
                 
-                {/* LEFT: Game Board (65%) */}
-                <div className="flex-1 relative flex flex-col items-center justify-center bg-gray-900 rounded-xl border border-gray-800 shadow-2xl overflow-hidden min-h-[500px] md:min-h-0">
-                  {/* Top Bar inside Board */}
-                  <div className="absolute top-0 left-0 right-0 p-4 flex justify-between items-center z-10 bg-gradient-to-b from-black/80 to-transparent">
-                     <div className="flex items-center gap-2">
-                        <span className={`w-3 h-3 rounded-full ${inputLocked ? 'bg-red-500' : 'bg-green-500'}`}></span>
-                        <span className="text-xs font-mono text-gray-400">STATUS: {gameState}</span>
-                     </div>
-                     {gameState === 'PLAYING' && (
-                        <button onClick={() => setGameState('MENU')} className="text-xs border border-gray-600 px-2 py-1 rounded hover:bg-gray-800">EXIT</button>
-                     )}
-                  </div>
-                  
-                  {renderGrid()}
-                  
-                  {/* Mobile Keyboard below grid inside container if space permits, or outside */}
-                  <div className="md:hidden w-full px-2 pb-2">
-                     <VirtualKeyboard />
+                {/* Top Stats Bar */}
+                <div className="bg-gray-900 p-4 rounded-xl border border-gray-800 shadow-xl flex-shrink-0">
+                  <div className="flex justify-between items-center gap-6">
+                    <div className="flex-1 text-center">
+                      <p className="text-xs text-gray-500 uppercase font-bold tracking-wider mb-1">Score (分數)</p>
+                      <div className="text-3xl font-mono text-blue-400">{score}</div>
+                    </div>
+                    <div className="flex-1 text-center">
+                      <p className="text-xs text-gray-500 uppercase font-bold tracking-wider mb-1">Level (難度)</p>
+                      <div className="text-lg font-semibold text-gray-300 capitalize">{level}</div>
+                    </div>
+                    <div className="flex-1 text-center">
+                      <p className="text-xs text-gray-500 uppercase font-bold tracking-wider mb-1">Speed (速度)</p>
+                      <div className="text-lg font-semibold text-gray-300 capitalize">{speedMode}</div>
+                    </div>
+                    {currentWord && wordMastery[currentWord.data.word] && (
+                      <div className="flex-1 text-center">
+                        <p className="text-xs text-gray-500 uppercase font-bold tracking-wider mb-1">Progress (進度)</p>
+                        <div className="flex gap-1 justify-center mt-2">
+                          {[1, 2, 3].map(i => (
+                            <div key={i} className={`w-3 h-3 rounded-full ${i <= wordMastery[currentWord.data.word] ? 'bg-yellow-400' : 'bg-gray-700'}`}></div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    {gameState === 'PLAYING' && (
+                      <button onClick={() => setGameState('MENU')} className="text-xs border border-gray-600 px-3 py-2 rounded hover:bg-gray-800 ml-4">EXIT</button>
+                    )}
                   </div>
                 </div>
 
-                {/* RIGHT: Sidebar (35%) */}
-                <div className="w-full md:w-80 flex flex-col gap-4">
+                {/* Game Board */}
+                <div className="flex-1 relative flex flex-col items-center justify-center bg-gray-900 rounded-xl border border-gray-800 shadow-2xl overflow-visible min-h-[600px]">
+                  {/* Status indicator */}
+                  <div className="absolute top-2 left-2 flex items-center gap-2 z-10">
+                    <span className={`w-3 h-3 rounded-full ${inputLocked ? 'bg-red-500' : 'bg-green-500'}`}></span>
+                    <span className="text-xs font-mono text-gray-400">STATUS: {gameState}</span>
+                  </div>
+
+                  {/* Phase A Helper Text */}
+                  {currentWord?.phase === 'A' && (
+                    <div className="absolute top-2 right-2 z-10 p-2 bg-blue-900/80 border border-blue-500/30 rounded-lg backdrop-blur-sm">
+                      <p className="text-blue-300 text-xs">Type missing letters! (輸入缺字母!)</p>
+                    </div>
+                  )}
                   
-                  {/* Stats Panel */}
-                  <div className="bg-gray-900 p-6 rounded-xl border border-gray-800 shadow-xl flex flex-col gap-4">
-                    <div className="flex justify-between items-end border-b border-gray-800 pb-4">
-                      <div>
-                        <p className="text-xs text-gray-500 uppercase font-bold tracking-wider mb-1">Score (分數)</p>
-                        <div className="text-4xl font-mono text-blue-400">{score}</div>
-                      </div>
-                      {Trophy && <Trophy className="text-yellow-600 opacity-50" size={32} />}
-                    </div>
-                    
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <p className="text-xs text-gray-500 uppercase font-bold tracking-wider mb-1">Level (難度)</p>
-                        <div className="text-sm font-semibold text-gray-300 capitalize">{level}</div>
-                      </div>
-                      <div>
-                        <p className="text-xs text-gray-500 uppercase font-bold tracking-wider mb-1">Speed (速度)</p>
-                        <div className="text-sm font-semibold text-gray-300 capitalize">{speedMode}</div>
-                      </div>
-                    </div>
-                  </div>
+                  {renderGrid()}
 
-                  {/* Next Word Panel */}
-                  <div className="bg-gray-900 p-6 rounded-xl border border-gray-800 shadow-xl">
-                     <p className="text-xs text-gray-500 uppercase font-bold tracking-wider mb-3">Next Word (下一個單字)</p>
-                     <div className="bg-gray-950 p-4 rounded-lg border border-gray-800 text-center">
-                       <p className="text-xl font-bold text-gray-400 tracking-widest">
-                         {nextWordData ? nextWordData.data.word.replace(/[A-Z]/g, '?') : '???'}
-                       </p>
-                       <p className="text-xs text-gray-600 mt-2">({nextWordData?.data.word.length} letters)</p>
-                     </div>
-                  </div>
-
-                  {/* Controls / Phase B Quiz Panel */}
-                  <div className="flex-1 bg-gray-900 p-6 rounded-xl border border-gray-800 shadow-xl flex flex-col relative overflow-hidden">
-                    
-                    {/* Phase Indicator */}
-                    <div className="absolute top-0 left-0 right-0 h-1 bg-gray-800">
-                       <div className={`h-full transition-all duration-300 ${currentWord?.phase === 'A' ? 'w-1/2 bg-blue-500' : 'w-full bg-green-500'}`}></div>
-                    </div>
-
-                    <h3 className="text-sm font-bold text-gray-400 uppercase tracking-widest mb-4 flex items-center gap-2 mt-2">
-                       {currentWord?.phase === 'A' ? (Type && <Type size={16}/>) : (BookOpen && <BookOpen size={16}/>)}
-                       {currentWord?.phase === 'A' ? 'Phase A: Spelling (階段 A: 拼字)' : 'Phase B: Meaning (階段 B: 釋義)'}
-                    </h3>
-
-                    <div className="flex-1 flex flex-col justify-center">
-                      {currentWord?.phase === 'A' ? (
-                        <div className="text-center space-y-4">
-                          <div className="p-4 bg-blue-900/20 border border-blue-500/30 rounded-lg">
-                            <p className="text-blue-300 text-sm">Type the missing letters! (輸入缺少的字母!)</p>
-                            <p className="text-xs text-gray-500 mt-1">(Use Arrow Keys to Move - 使用方向鍵移動)</p>
-                          </div>
-                          {/* Visualizer for current word */}
-                          <div className="flex flex-wrap justify-center gap-1">
-                            {currentWord?.letters.map((l, i) => (
-                              <span key={i} className={`w-6 h-8 flex items-center justify-center rounded ${l.status === 'missing' && l.input === '' ? 'bg-yellow-900/50 border border-yellow-500' : 'bg-gray-800 text-gray-400'}`}>
-                                {l.status === 'filled' ? l.char : (l.input || '_')}
-                              </span>
-                            ))}
-                          </div>
-                          <button onClick={() => speakWord(currentWord?.data.word)} className="text-gray-500 hover:text-white transition-colors flex items-center justify-center gap-2 mx-auto text-sm">
-                            {Volume2 && <Volume2 size={16}/>} Replay Audio (重播發音)
-                          </button>
-                        </div>
-                      ) : currentWord?.phase === 'B' ? (
-                        <div className="space-y-3 animate-in slide-in-from-right duration-300">
-                          <p className="text-center text-xl font-bold text-white mb-4 tracking-widest">{currentWord.data.word}</p>
+                  {/* Phase B - Meaning Selection Overlay (顯示在遊戲中間) */}
+                  {currentWord?.phase === 'B' && (
+                    <div className="absolute inset-0 bg-black/70 flex items-center justify-center z-20 backdrop-blur-sm p-4">
+                      <div className="bg-gray-900 p-6 rounded-2xl border-2 border-purple-500 shadow-2xl max-w-md w-full space-y-4 animate-in slide-in-from-bottom duration-300">
+                        <h3 className="text-center text-2xl font-bold text-white mb-2 tracking-widest">{currentWord.data.word}</h3>
+                        <p className="text-center text-sm text-gray-400 mb-4">Choose the correct meaning (選擇正確釋義)</p>
+                        <div className="space-y-2">
                           {currentWord.data.currentOptions.map((opt, idx) => (
                             <button
                               key={idx}
                               onClick={() => handlePhaseBAnswer(opt)}
-                              // Keyboard navigation highlight
-                              className={`w-full p-4 text-left bg-gray-800 rounded transition-all text-sm md:text-base font-medium text-gray-200 border-l-4 
+                              className={`w-full p-4 text-left rounded-lg transition-all text-base font-medium border-2
                                 ${idx === meaningCursorIndex 
-                                  ? 'bg-purple-700/50 border-purple-400 ring-2 ring-purple-400' 
-                                  : 'hover:bg-gray-700 hover:border-l-4 hover:border-green-500 border-transparent'
+                                  ? 'bg-purple-600 border-purple-400 text-white scale-105 shadow-lg' 
+                                  : 'bg-gray-800 border-gray-700 text-gray-200 hover:bg-gray-700 hover:border-purple-500'
                                 }`}
                             >
                               {idx + 1}. {opt}
                             </button>
                           ))}
                         </div>
-                      ) : (
-                        <div className="text-center text-gray-600 text-sm italic">
-                          Waiting for game start... (等待遊戲開始...)
-                        </div>
-                      )}
+                      </div>
                     </div>
+                  )}
+                  
+                  {/* Mobile Keyboard */}
+                  <div className="md:hidden w-full px-2 pb-2">
+                     <VirtualKeyboard />
                   </div>
-
                 </div>
+
               </div>
             </div>
           );
