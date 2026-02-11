@@ -322,11 +322,16 @@
         function VocabrisApp() {
           // --- Game State ---
           const [currentUser, setCurrentUser] = useState(null); // 當前選擇的帳號
-          const [gameState, setGameState] = useState('USER_SELECT'); // USER_SELECT, MENU, PLAYING, GAMEOVER
+          const [gameState, setGameState] = useState('USER_SELECT'); // USER_SELECT, MENU, PLAYING, GAMEOVER, VOCAB_MANAGER
           const [level, setLevel] = useState('elementary');
           const [speedMode, setSpeedMode] = useState('normal');
           const [score, setScore] = useState(0);
           const [vocabularyLoaded, setVocabularyLoaded] = useState(false);
+          
+          // --- Vocabulary Manager State ---
+          const [editingLevel, setEditingLevel] = useState('elementary');
+          const [editingWord, setEditingWord] = useState(null); // null or word object for editing
+          const [isAddingWord, setIsAddingWord] = useState(false);
           
           // --- Word Mastery Tracking ---
           // Format: { "WORD": correctCount } - 根據當前用戶從 vocabulary.json 載入
@@ -999,6 +1004,22 @@
                   {Play && <Play fill="currentColor" />} START GAME
                 </button>
                 
+                {/* Vocabulary Manager Button */}
+                <button 
+                  onClick={() => {
+                    setEditingLevel(level);
+                    setGameState('VOCAB_MANAGER');
+                  }}
+                  disabled={!vocabularyLoaded}
+                  className={`w-full py-3 rounded-xl font-bold text-lg transition-all flex items-center justify-center gap-2 shadow-lg ${
+                    vocabularyLoaded 
+                      ? 'bg-gradient-to-r from-green-600 to-teal-600 hover:scale-[1.02] shadow-teal-900/50' 
+                      : 'bg-gray-600 cursor-not-allowed'
+                  }`}
+                >
+                  {Settings && <Settings size={20} />} 修改單字 | Edit Vocabulary
+                </button>
+                
                 {/* Mastery Stats */}
                 <div className="mt-4 pt-4 border-t border-gray-700">
                   <p className="text-xs text-gray-500 uppercase font-bold tracking-wider mb-2">Progress (進度)</p>
@@ -1029,6 +1050,246 @@
               </div>
             </div>
           );
+
+          const VocabularyManagerScreen = () => {
+            const currentLevelWords = WORD_DATABASE[editingLevel] || [];
+            const [searchTerm, setSearchTerm] = useState('');
+            const [formData, setFormData] = useState({ word: '', meaning: '', options: ['', '', ''] });
+            
+            const filteredWords = currentLevelWords.filter(w => 
+              w.word.toLowerCase().includes(searchTerm.toLowerCase()) ||
+              w.meaning.includes(searchTerm)
+            );
+            
+            const handleEdit = (wordObj) => {
+              setEditingWord(wordObj);
+              setFormData({
+                word: wordObj.word,
+                meaning: wordObj.meaning,
+                options: [...wordObj.options]
+              });
+              setIsAddingWord(false);
+            };
+            
+            const handleAdd = () => {
+              setEditingWord(null);
+              setFormData({ word: '', meaning: '', options: ['', '', ''] });
+              setIsAddingWord(true);
+            };
+            
+            const handleSave = () => {
+              if (!formData.word || !formData.meaning || formData.options.some(opt => !opt)) {
+                alert('請填寫完整資訊 | Please fill in all fields');
+                return;
+              }
+              
+              if (editingWord) {
+                // Update existing word
+                editingWord.word = formData.word.toUpperCase();
+                editingWord.meaning = formData.meaning;
+                editingWord.options = formData.options;
+              } else {
+                // Add new word
+                WORD_DATABASE[editingLevel].push({
+                  word: formData.word.toUpperCase(),
+                  meaning: formData.meaning,
+                  options: formData.options
+                });
+              }
+              
+              setEditingWord(null);
+              setIsAddingWord(false);
+              alert('儲存成功！ | Saved successfully!');
+            };
+            
+            const handleDelete = (wordObj) => {
+              if (window.confirm(`確定要刪除「${wordObj.word}」嗎？ | Delete "${wordObj.word}"?`)) {
+                const index = WORD_DATABASE[editingLevel].indexOf(wordObj);
+                if (index > -1) {
+                  WORD_DATABASE[editingLevel].splice(index, 1);
+                  alert('刪除成功！ | Deleted successfully!');
+                }
+              }
+            };
+            
+            return (
+              <div className="absolute inset-0 z-50 bg-gray-900 text-white flex flex-col p-6 overflow-hidden">
+                {/* Header */}
+                <div className="flex items-center justify-between mb-6">
+                  <button 
+                    onClick={() => {
+                      setGameState('MENU');
+                      setEditingWord(null);
+                      setIsAddingWord(false);
+                    }}
+                    className="px-4 py-2 bg-gray-800 hover:bg-gray-700 rounded-lg text-sm flex items-center gap-2 border border-gray-700"
+                  >
+                    ← 返回主選單 | Back to Menu
+                  </button>
+                  <h1 className="text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-green-400 to-teal-600">
+                    單字管理 | Vocabulary Manager
+                  </h1>
+                  <div className="w-32"></div>
+                </div>
+                
+                <div className="flex-1 flex gap-4 overflow-hidden">
+                  {/* Left Panel - Word List */}
+                  <div className="w-1/2 flex flex-col bg-gray-800 rounded-xl border border-gray-700 p-4">
+                    {/* Level Selector */}
+                    <div className="mb-4">
+                      <label className="text-sm text-gray-400 mb-2 block">難度 | Level:</label>
+                      <div className="grid grid-cols-3 gap-2">
+                        {['elementary', 'intermediate', 'advanced'].map((lvl) => (
+                          <button
+                            key={lvl}
+                            onClick={() => {
+                              setEditingLevel(lvl);
+                              setEditingWord(null);
+                              setIsAddingWord(false);
+                            }}
+                            className={`p-2 text-sm rounded-lg border-2 transition-all ${
+                              editingLevel === lvl 
+                              ? 'border-green-500 bg-green-500/20 text-white' 
+                              : 'border-gray-600 text-gray-400 hover:border-gray-500'
+                            }`}
+                          >
+                            {lvl.charAt(0).toUpperCase() + lvl.slice(1)}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                    
+                    {/* Search Bar */}
+                    <input
+                      type="text"
+                      placeholder="搜尋單字... | Search word..."
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white mb-4 focus:outline-none focus:border-green-500"
+                    />
+                    
+                    {/* Add Button */}
+                    <button
+                      onClick={handleAdd}
+                      className="w-full py-2 mb-4 bg-green-600 hover:bg-green-700 rounded-lg font-bold flex items-center justify-center gap-2"
+                    >
+                      + 新增單字 | Add Word
+                    </button>
+                    
+                    {/* Word List */}
+                    <div className="flex-1 overflow-y-auto space-y-2">
+                      <div className="text-sm text-gray-400 mb-2">
+                        共 {filteredWords.length} 個單字 | {filteredWords.length} words
+                      </div>
+                      {filteredWords.map((wordObj, idx) => (
+                        <div
+                          key={idx}
+                          className={`p-3 rounded-lg border-2 cursor-pointer transition-all ${
+                            editingWord === wordObj
+                            ? 'border-green-500 bg-green-500/10'
+                            : 'border-gray-700 bg-gray-900 hover:border-gray-600'
+                          }`}
+                          onClick={() => handleEdit(wordObj)}
+                        >
+                          <div className="font-bold text-lg">{wordObj.word}</div>
+                          <div className="text-sm text-gray-400">{wordObj.meaning}</div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                  
+                  {/* Right Panel - Edit Form */}
+                  <div className="w-1/2 flex flex-col bg-gray-800 rounded-xl border border-gray-700 p-6">
+                    {(editingWord || isAddingWord) ? (
+                      <div className="space-y-4">
+                        <h2 className="text-2xl font-bold mb-4">
+                          {editingWord ? '編輯單字 | Edit Word' : '新增單字 | Add Word'}
+                        </h2>
+                        
+                        {/* Word Input */}
+                        <div>
+                          <label className="text-sm text-gray-400 mb-1 block">單字 | Word:</label>
+                          <input
+                            type="text"
+                            value={formData.word}
+                            onChange={(e) => setFormData({ ...formData, word: e.target.value.toUpperCase() })}
+                            className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white text-xl font-bold focus:outline-none focus:border-green-500"
+                            placeholder="例如: APPLE"
+                          />
+                        </div>
+                        
+                        {/* Meaning Input */}
+                        <div>
+                          <label className="text-sm text-gray-400 mb-1 block">中文釋義 | Meaning:</label>
+                          <input
+                            type="text"
+                            value={formData.meaning}
+                            onChange={(e) => setFormData({ ...formData, meaning: e.target.value })}
+                            className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:border-green-500"
+                            placeholder="例如: 蘋果"
+                          />
+                        </div>
+                        
+                        {/* Options Inputs */}
+                        <div>
+                          <label className="text-sm text-gray-400 mb-1 block">錯誤選項 | Wrong Options (3個):</label>
+                          {formData.options.map((opt, idx) => (
+                            <input
+                              key={idx}
+                              type="text"
+                              value={opt}
+                              onChange={(e) => {
+                                const newOptions = [...formData.options];
+                                newOptions[idx] = e.target.value;
+                                setFormData({ ...formData, options: newOptions });
+                              }}
+                              className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white mb-2 focus:outline-none focus:border-green-500"
+                              placeholder={`錯誤選項 ${idx + 1}`}
+                            />
+                          ))}
+                        </div>
+                        
+                        {/* Action Buttons */}
+                        <div className="flex gap-2 pt-4">
+                          <button
+                            onClick={handleSave}
+                            className="flex-1 py-3 bg-green-600 hover:bg-green-700 rounded-lg font-bold"
+                          >
+                            💾 儲存 | Save
+                          </button>
+                          <button
+                            onClick={() => {
+                              setEditingWord(null);
+                              setIsAddingWord(false);
+                            }}
+                            className="flex-1 py-3 bg-gray-600 hover:bg-gray-700 rounded-lg font-bold"
+                          >
+                            ✕ 取消 | Cancel
+                          </button>
+                          {editingWord && (
+                            <button
+                              onClick={() => handleDelete(editingWord)}
+                              className="px-4 py-3 bg-red-600 hover:bg-red-700 rounded-lg font-bold"
+                            >
+                              🗑️ 刪除 | Delete
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="flex-1 flex items-center justify-center text-gray-500">
+                        <div className="text-center">
+                          <div className="text-6xl mb-4">📚</div>
+                          <p>選擇一個單字進行編輯</p>
+                          <p className="text-sm">或點擊「新增單字」按鈕</p>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            );
+          };
 
           const GameOverScreen = () => (
             <div className="absolute inset-0 z-50 bg-black/90 text-white flex flex-col items-center justify-center p-6 text-center animate-in fade-in duration-500">
@@ -1106,6 +1367,7 @@
               {gameState === 'USER_SELECT' && <UserSelectScreen />}
               {gameState === 'MENU' && <MenuScreen />}
               {gameState === 'GAMEOVER' && <GameOverScreen />}
+              {gameState === 'VOCAB_MANAGER' && <VocabularyManagerScreen />}
 
               {/* Main Game Layout - Single Column */}
               <div className="w-full max-w-4xl min-h-screen flex flex-col gap-4 p-4">
