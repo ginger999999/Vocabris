@@ -2,8 +2,21 @@
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
+    
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Vocabris - 英語單字俄羅斯方塊</title>
+    
+    <!-- PWA Manifest -->
+    <link rel="manifest" href="/manifest.json">
+    
+    <!-- iOS 支援 -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Vocabris">
+    <link rel="apple-touch-icon" href="/icon-192.png">
+    
+    <!-- 主題顏色 -->
+    <meta name="theme-color" content="#030712">
     <!-- 載入 Tailwind CSS CDN for styling -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- 載入 React and ReactDOM CDNs -->
@@ -1185,6 +1198,21 @@
         const container = document.getElementById('root');
         const root = ReactDOM.createRoot(container);
         root.render(<VocabrisApp />);
+    </script>
+    
+    <!-- Service Worker 註冊 -->
+    <script>
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+          navigator.serviceWorker.register('/service-worker.js')
+            .then((registration) => {
+              console.log('✅ Service Worker 註冊成功:', registration.scope);
+            })
+            .catch((error) => {
+              console.log('❌ Service Worker 註冊失敗:', error);
+            });
+        });
+      }
     </script>
 </body>
 </html>
