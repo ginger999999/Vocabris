@@ -1077,27 +1077,66 @@
             const [currentCsvConfig, setCurrentCsvConfig] = useState({});
             const [isSwitching, setIsSwitching] = useState(false);
             const [editingWordName, setEditingWordName] = useState(null); // Track by word name instead of object
+            const [isServerMode, setIsServerMode] = useState(false); // Check if server APIs are available
             
             // Function to reload CSV list
-            const reloadCsvList = () => {
-              fetch('/api/list-csv')
-                .then(res => res.json())
-                .then(data => {
+            const reloadCsvList = async () => {
+              try {
+                const response = await fetch('/api/list-csv');
+                if (response.ok) {
+                  const data = await response.json();
                   setAvailableCsvFiles(data.files || []);
-                })
-                .catch(err => console.error('Failed to load CSV files:', err));
+                  setIsServerMode(true);
+                } else {
+                  throw new Error('API not available');
+                }
+              } catch (err) {
+                console.log('Server API not available, using static mode');
+                // Fallback: use static list of CSV files
+                setAvailableCsvFiles([
+                  'elementary_words.csv',
+                  'intermediate_words.csv', 
+                  'advanced_words.csv',
+                  'v1200.csv'
+                ]);
+                setIsServerMode(false);
+              }
             };
             
             // Load available CSV files and current config
             useEffect(() => {
               reloadCsvList();
               
+              // Try to load config from API first, fallback to static file
               fetch('/api/get-csv-config')
-                .then(res => res.json())
+                .then(res => {
+                  if (res.ok) {
+                    setIsServerMode(true);
+                    return res.json();
+                  } else {
+                    throw new Error('API not available');
+                  }
+                })
                 .then(data => {
                   setCurrentCsvConfig(data);
                 })
-                .catch(err => console.error('Failed to load CSV config:', err));
+                .catch(err => {
+                  console.log('Server API not available, loading static config');
+                  // Fallback: load csv_config.json as static file
+                  fetch('/csv_config.json')
+                    .then(res => res.json())
+                    .then(data => setCurrentCsvConfig(data))
+                    .catch(err2 => {
+                      console.error('Failed to load config:', err2);
+                      // Use default config
+                      setCurrentCsvConfig({
+                        'elementary': 'elementary_words.csv',
+                        'intermediate': 'intermediate_words.csv',
+                        'advanced': 'advanced_words.csv'
+                      });
+                    });
+                  setIsServerMode(false);
+                });
             }, []);
             
             // Listen for messages from import.html
@@ -1213,27 +1252,34 @@
               }
               
               // 儲存到 CSV 檔案
-              try {
-                const response = await fetch('/api/update-words', {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({
-                    level: editingLevel,
-                    words: WORD_DATABASE[editingLevel]
-                  })
-                });
-                
-                const result = await response.json();
-                if (result.success) {
-                  setEditingWordName(null);
-                  setIsAddingWord(false);
-                  alert('儲存成功！CSV 檔案已更新 | Saved successfully! CSV file updated');
-                } else {
-                  alert('儲存失敗: ' + result.error);
+              if (isServerMode) {
+                try {
+                  const response = await fetch('/api/update-words', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                      level: editingLevel,
+                      words: WORD_DATABASE[editingLevel]
+                    })
+                  });
+                  
+                  const result = await response.json();
+                  if (result.success) {
+                    setEditingWordName(null);
+                    setIsAddingWord(false);
+                    alert('儲存成功！CSV 檔案已更新 | Saved successfully! CSV file updated');
+                  } else {
+                    alert('儲存失敗: ' + result.error);
+                  }
+                } catch (error) {
+                  console.error('Error saving to CSV:', error);
+                  alert('儲存到 CSV 失敗 | Failed to save to CSV: ' + error.message);
                 }
-              } catch (error) {
-                console.error('Error saving to CSV:', error);
-                alert('儲存到 CSV 失敗 | Failed to save to CSV: ' + error.message);
+              } else {
+                // Static mode - only update in memory
+                setEditingWordName(null);
+                setIsAddingWord(false);
+                alert('⚠️ 靜態部署模式\n修改已套用到當前頁面，但無法儲存到 CSV 檔案\n重新整理後將恢復原始資料\n\n如需永久修改，請在本地環境執行 server.py\n\nStatic deployment mode\nChanges applied to current page only\nWill be reset on refresh');
               }
             };
             

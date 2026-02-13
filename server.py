@@ -378,7 +378,7 @@ class VocabrisHandler(SimpleHTTPRequestHandler):
         super().end_headers()
 
 if __name__ == '__main__':
-    PORT = 8000
+    PORT = int(os.environ.get('PORT', 8000))
     print(f'Starting Vocabris server on port {PORT}...')
     print(f'Open http://localhost:{PORT}/index.html')
     
