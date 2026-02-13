@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Button Test</title>
+</head>
+<body>
+    <h1>Button Click Test</h1>
+    <button id="testBtn" style="padding: 20px; font-size: 18px; background: green; color: white; cursor: pointer;">
+        Click Me
+    </button>
+    <div id="output"></div>
+    
+    <script>
+        console.log('Script loaded');
+        
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('DOM loaded');
+            
+            const btn = document.getElementById('testBtn');
+            const output = document.getElementById('output');
+            
+            console.log('Button found:', !!btn);
+            
+            if (btn) {
+                btn.addEventListener('click', function() {
+                    console.log('Button clicked!');
+                    output.innerHTML += '<p>Button clicked at ' + new Date().toLocaleTimeString() + '</p>';
+                    alert('Button works!');
+                });
+                
+                console.log('Click listener added');
+            }
+        });
+    </script>
+</body>
+</html>
