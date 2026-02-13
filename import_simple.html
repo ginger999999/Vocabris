@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <title>Simple Test</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="p-8">
+    <h1 class="text-2xl mb-4">簡化測試</h1>
+    
+    <input type="text" id="fileName" placeholder="檔案名稱" class="border p-2 mb-4">
+    <br>
+    <input type="file" id="fileInput" class="mb-4">
+    <br>
+    <button id="testBtn" onclick="testClick()" class="bg-green-600 text-white px-6 py-3 rounded">
+        測試按鈕
+    </button>
+    
+    <div id="result" class="mt-4"></div>
+    
+    <script>
+        console.log('Script loaded');
+        
+        function testClick() {
+            alert('按鈕有效！Button works!');
+            document.getElementById('result').innerHTML = '<p class="text-green-600 font-bold">✓ 按鈕點擊成功！</p>';
+        }
+        
+        console.log('testClick function defined');
+    </script>
+</body>
+</html>

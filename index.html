@@ -340,6 +340,16 @@
           // Mastered words (answered correctly 3 times)
           const [masteredWords, setMasteredWords] = useState([]);
           
+          // Check URL parameters for view
+          useEffect(() => {
+            const urlParams = new URLSearchParams(window.location.search);
+            if (urlParams.get('view') === 'vocabulary') {
+              setGameState('VOCAB_MANAGER');
+              // Clear URL parameter
+              window.history.replaceState({}, '', window.location.pathname);
+            }
+          }, []);
+          
           // Board State
           // grid represents the "dead" blocks (stacked). 0 = empty, string = letter content
           const [grid, setGrid] = useState(Array(GRID_ROWS).fill().map(() => Array(GRID_COLS).fill(null)));
@@ -367,10 +377,17 @@
           
           // --- Load Vocabulary from JSON file ---
           useEffect(() => {
-            fetch('./vocabulary.json')
+            // Add timestamp to prevent caching
+            const timestamp = new Date().getTime();
+            fetch(`./vocabulary.json?v=${timestamp}`)
               .then(response => response.json())
               .then(data => {
                 WORD_DATABASE = data;
+                console.log('Loaded vocabulary:', {
+                  elementary: data.elementary?.length || 0,
+                  intermediate: data.intermediate?.length || 0,
+                  advanced: data.advanced?.length || 0
+                });
                 setVocabularyLoaded(true);
               })
               .catch(error => {
@@ -1055,6 +1072,95 @@
             const currentLevelWords = WORD_DATABASE[editingLevel] || [];
             const [searchTerm, setSearchTerm] = useState('');
             const [formData, setFormData] = useState({ word: '', meaning: '', options: ['', '', ''] });
+            const [availableCsvFiles, setAvailableCsvFiles] = useState([]);
+            const [selectedCsvFile, setSelectedCsvFile] = useState(`${editingLevel}_words.csv`);
+            const [currentCsvConfig, setCurrentCsvConfig] = useState({});
+            const [isSwitching, setIsSwitching] = useState(false);
+            const [editingWordName, setEditingWordName] = useState(null); // Track by word name instead of object
+            
+            // Function to reload CSV list
+            const reloadCsvList = () => {
+              fetch('/api/list-csv')
+                .then(res => res.json())
+                .then(data => {
+                  setAvailableCsvFiles(data.files || []);
+                })
+                .catch(err => console.error('Failed to load CSV files:', err));
+            };
+            
+            // Load available CSV files and current config
+            useEffect(() => {
+              reloadCsvList();
+              
+              fetch('/api/get-csv-config')
+                .then(res => res.json())
+                .then(data => {
+                  setCurrentCsvConfig(data);
+                })
+                .catch(err => console.error('Failed to load CSV config:', err));
+            }, []);
+            
+            // Listen for messages from import.html
+            useEffect(() => {
+              const handleMessage = (event) => {
+                if (event.data && event.data.type === 'CSV_CREATED') {
+                  console.log('New CSV created:', event.data.filename);
+                  // Reload CSV list
+                  reloadCsvList();
+                  // Show notification
+                  alert(`新檔案已建立：${event.data.filename}\n請在下拉選單中選擇並點擊"應用"`);
+                }
+              };
+              
+              window.addEventListener('message', handleMessage);
+              return () => window.removeEventListener('message', handleMessage);
+            }, []);
+            
+            // Update selected CSV when level changes
+            useEffect(() => {
+              if (currentCsvConfig[editingLevel]) {
+                setSelectedCsvFile(currentCsvConfig[editingLevel]);
+              }
+              // Clear editing state when level changes
+              setEditingWordName(null);
+              setIsAddingWord(false);
+              setSearchTerm('');
+            }, [editingLevel, currentCsvConfig]);
+            
+            const handleSwitchCsv = async () => {
+              if (selectedCsvFile === currentCsvConfig[editingLevel]) {
+                alert('已經是當前檔案 | Already using this file');
+                return;
+              }
+              
+              if (!confirm(`確定要將 ${editingLevel} 級別切換到 ${selectedCsvFile} 嗎？\n\n所有檔案都會保留，只是切換資料來源。\n\nSwitch ${editingLevel} level to ${selectedCsvFile}?\n\nAll files will be preserved, just switching the data source.`)) {
+                return;
+              }
+              
+              setIsSwitching(true);
+              try {
+                const response = await fetch('/api/switch-csv', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    source: selectedCsvFile,
+                    level: editingLevel
+                  })
+                });
+                
+                const result = await response.json();
+                if (response.ok) {
+                  alert('切換成功！請重新載入頁面查看新資料。\nSwitched successfully! Please reload the page.');
+                  window.location.reload();
+                } else {
+                  alert('切換失敗: ' + (result.error || 'Unknown error'));
+                }
+              } catch (error) {
+                alert('切換失敗: ' + error.message);
+              } finally {
+                setIsSwitching(false);
+              }
+            };
             
             const filteredWords = currentLevelWords.filter(w => 
               w.word.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -1062,32 +1168,41 @@
             );
             
             const handleEdit = (wordObj) => {
-              setEditingWord(wordObj);
+              console.log('Editing word:', wordObj);
+              setEditingWordName(wordObj.word);
               setFormData({
                 word: wordObj.word,
                 meaning: wordObj.meaning,
                 options: [...wordObj.options]
               });
               setIsAddingWord(false);
+              console.log('Form data set:', {
+                word: wordObj.word,
+                meaning: wordObj.meaning,
+                options: wordObj.options
+              });
             };
             
             const handleAdd = () => {
-              setEditingWord(null);
+              setEditingWordName(null);
               setFormData({ word: '', meaning: '', options: ['', '', ''] });
               setIsAddingWord(true);
             };
             
-            const handleSave = () => {
+            const handleSave = async () => {
               if (!formData.word || !formData.meaning || formData.options.some(opt => !opt)) {
                 alert('請填寫完整資訊 | Please fill in all fields');
                 return;
               }
               
-              if (editingWord) {
+              if (editingWordName) {
                 // Update existing word
-                editingWord.word = formData.word.toUpperCase();
-                editingWord.meaning = formData.meaning;
-                editingWord.options = formData.options;
+                const wordToEdit = WORD_DATABASE[editingLevel].find(w => w.word === editingWordName);
+                if (wordToEdit) {
+                  wordToEdit.word = formData.word.toUpperCase();
+                  wordToEdit.meaning = formData.meaning;
+                  wordToEdit.options = formData.options;
+                }
               } else {
                 // Add new word
                 WORD_DATABASE[editingLevel].push({
@@ -1097,17 +1212,59 @@
                 });
               }
               
-              setEditingWord(null);
-              setIsAddingWord(false);
-              alert('儲存成功！ | Saved successfully!');
+              // 儲存到 CSV 檔案
+              try {
+                const response = await fetch('/api/update-words', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    level: editingLevel,
+                    words: WORD_DATABASE[editingLevel]
+                  })
+                });
+                
+                const result = await response.json();
+                if (result.success) {
+                  setEditingWordName(null);
+                  setIsAddingWord(false);
+                  alert('儲存成功！CSV 檔案已更新 | Saved successfully! CSV file updated');
+                } else {
+                  alert('儲存失敗: ' + result.error);
+                }
+              } catch (error) {
+                console.error('Error saving to CSV:', error);
+                alert('儲存到 CSV 失敗 | Failed to save to CSV: ' + error.message);
+              }
             };
             
-            const handleDelete = (wordObj) => {
-              if (window.confirm(`確定要刪除「${wordObj.word}」嗎？ | Delete "${wordObj.word}"?`)) {
-                const index = WORD_DATABASE[editingLevel].indexOf(wordObj);
+            const handleDelete = async (wordName) => {
+              if (window.confirm(`確定要刪除「${wordName}」嗎？ | Delete "${wordName}"?`)) {
+                const index = WORD_DATABASE[editingLevel].findIndex(w => w.word === wordName);
                 if (index > -1) {
                   WORD_DATABASE[editingLevel].splice(index, 1);
-                  alert('刪除成功！ | Deleted successfully!');
+                  setEditingWordName(null);
+                  
+                  // 儲存到 CSV 檔案
+                  try {
+                    const response = await fetch('/api/update-words', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({
+                        level: editingLevel,
+                        words: WORD_DATABASE[editingLevel]
+                      })
+                    });
+                    
+                    const result = await response.json();
+                    if (result.success) {
+                      alert('刪除成功！CSV 檔案已更新 | Deleted successfully! CSV file updated');
+                    } else {
+                      alert('刪除失敗: ' + result.error);
+                    }
+                  } catch (error) {
+                    console.error('Error saving to CSV:', error);
+                    alert('儲存到 CSV 失敗 | Failed to save to CSV: ' + error.message);
+                  }
                 }
               }
             };
@@ -1159,6 +1316,43 @@
                       </div>
                     </div>
                     
+                    {/* CSV File Selector */}
+                    <div className="mb-4">
+                      <label className="text-sm text-gray-400 mb-2 block">資料來源檔案 | Source CSV File:</label>
+                      <div className="flex gap-2">
+                        <select
+                          value={selectedCsvFile}
+                          onChange={(e) => setSelectedCsvFile(e.target.value)}
+                          className="flex-1 px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white text-sm focus:outline-none focus:border-green-500"
+                        >
+                          {availableCsvFiles.map((file) => (
+                            <option key={file} value={file}>
+                              {file}
+                            </option>
+                          ))}
+                        </select>
+                        <button
+                          onClick={handleSwitchCsv}
+                          disabled={isSwitching || selectedCsvFile === currentCsvConfig[editingLevel]}
+                          className="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 disabled:cursor-not-allowed rounded-lg text-sm font-bold transition-all"
+                        >
+                          {isSwitching ? '處理中...' : '應用'}
+                        </button>
+                        <button
+                          onClick={() => window.open('/import.html', '_blank')}
+                          className="px-4 py-2 bg-purple-600 hover:bg-purple-700 rounded-lg text-sm font-bold transition-all whitespace-nowrap"
+                          title="開啟匯入工具建立新的單字資料檔案"
+                        >
+                          📁 自建資料
+                        </button>
+                      </div>
+                      <p className="text-xs text-gray-500 mt-1">
+                        💡 目前使用: <span className="text-green-400 font-bold">{currentCsvConfig[editingLevel] || 'loading...'}</span>
+                        <br />
+                        選擇其他 CSV 檔案並點擊"應用"來切換資料來源（所有檔案都會保留）
+                      </p>
+                    </div>
+                    
                     {/* Search Bar */}
                     <input
                       type="text"
@@ -1181,11 +1375,11 @@
                       <div className="text-sm text-gray-400 mb-2">
                         共 {filteredWords.length} 個單字 | {filteredWords.length} words
                       </div>
-                      {filteredWords.map((wordObj, idx) => (
+                      {filteredWords.map((wordObj) => (
                         <div
-                          key={idx}
+                          key={wordObj.word}
                           className={`p-3 rounded-lg border-2 cursor-pointer transition-all ${
-                            editingWord === wordObj
+                            editingWordName === wordObj.word
                             ? 'border-green-500 bg-green-500/10'
                             : 'border-gray-700 bg-gray-900 hover:border-gray-600'
                           }`}
@@ -1200,10 +1394,10 @@
                   
                   {/* Right Panel - Edit Form */}
                   <div className="w-1/2 flex flex-col bg-gray-800 rounded-xl border border-gray-700 p-6">
-                    {(editingWord || isAddingWord) ? (
+                    {(editingWordName || isAddingWord) ? (
                       <div className="space-y-4">
                         <h2 className="text-2xl font-bold mb-4">
-                          {editingWord ? '編輯單字 | Edit Word' : '新增單字 | Add Word'}
+                          {editingWordName ? '編輯單字 | Edit Word' : '新增單字 | Add Word'}
                         </h2>
                         
                         {/* Word Input */}
@@ -1259,16 +1453,16 @@
                           </button>
                           <button
                             onClick={() => {
-                              setEditingWord(null);
+                              setEditingWordName(null);
                               setIsAddingWord(false);
                             }}
                             className="flex-1 py-3 bg-gray-600 hover:bg-gray-700 rounded-lg font-bold"
                           >
                             ✕ 取消 | Cancel
                           </button>
-                          {editingWord && (
+                          {editingWordName && (
                             <button
-                              onClick={() => handleDelete(editingWord)}
+                              onClick={() => handleDelete(editingWordName)}
                               className="px-4 py-3 bg-red-600 hover:bg-red-700 rounded-lg font-bold"
                             >
                               🗑️ 刪除 | Delete

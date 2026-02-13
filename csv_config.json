@@ -1,0 +1,5 @@
+{
+  "elementary": "test.csv",
+  "intermediate": "intermediate_words.csv",
+  "advanced": "advanced_words.csv"
+}
