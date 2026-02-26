@@ -26,8 +26,19 @@ class VocabrisHandler(SimpleHTTPRequestHandler):
                 self.wfile.write(b'{"error": "Missing user or level"}')
                 return
             
-            # 更新 CSV 檔案
-            csv_file = f'{level}_words.csv'
+            # 更新 CSV 檔案（依據當前配置，而非固定檔名）
+            config_file = 'csv_config.json'
+            if os.path.exists(config_file):
+                with open(config_file, 'r', encoding='utf-8') as f:
+                    config = json.load(f)
+            else:
+                config = {
+                    'elementary': 'elementary_words.csv',
+                    'intermediate': 'intermediate_words.csv',
+                    'advanced': 'advanced_words.csv'
+                }
+
+            csv_file = config.get(level, f'{level}_words.csv')
             if not os.path.exists(csv_file):
                 self.send_response(404)
                 self.end_headers()
@@ -59,7 +70,12 @@ class VocabrisHandler(SimpleHTTPRequestHandler):
                 self.send_header('Content-type', 'application/json')
                 self.send_header('Access-Control-Allow-Origin', '*')
                 self.end_headers()
-                self.wfile.write(b'{"success": true}')
+                self.wfile.write(json.dumps({
+                    "success": True,
+                    "csv_file": csv_file,
+                    "level": level,
+                    "user": user
+                }).encode())
                 
             except Exception as e:
                 self.send_response(500)
@@ -331,6 +347,41 @@ class VocabrisHandler(SimpleHTTPRequestHandler):
                 self.send_response(500)
                 self.end_headers()
                 self.wfile.write(json.dumps({"error": str(e)}).encode())
+
+        elif self.path.startswith('/api/debug-progress-target'):
+            # 除錯：查看某個 level 目前對應寫入哪個 CSV
+            try:
+                parsed = urlparse(self.path)
+                query = parse_qs(parsed.query)
+                level = (query.get('level', ['elementary'])[0] or 'elementary').strip()
+
+                config_file = 'csv_config.json'
+                if os.path.exists(config_file):
+                    with open(config_file, 'r', encoding='utf-8') as f:
+                        config = json.load(f)
+                else:
+                    config = {
+                        'elementary': 'elementary_words.csv',
+                        'intermediate': 'intermediate_words.csv',
+                        'advanced': 'advanced_words.csv'
+                    }
+
+                target = config.get(level, f'{level}_words.csv')
+
+                self.send_response(200)
+                self.send_header('Content-type', 'application/json')
+                self.send_header('Access-Control-Allow-Origin', '*')
+                self.end_headers()
+                self.wfile.write(json.dumps({
+                    'level': level,
+                    'target_csv': target,
+                    'exists': os.path.exists(target),
+                    'config': config
+                }).encode())
+            except Exception as e:
+                self.send_response(500)
+                self.end_headers()
+                self.wfile.write(json.dumps({"error": str(e)}).encode())
         
         elif self.path == '/api/get-csv-config':
             # 獲取當前 CSV 配置
@@ -370,8 +421,15 @@ class VocabrisHandler(SimpleHTTPRequestHandler):
     
     def end_headers(self):
         self.send_header('Access-Control-Allow-Origin', '*')
-        # Prevent caching for vocabulary.json
-        if self.path and 'vocabulary.json' in self.path:
+        # Prevent caching for frequently changed frontend assets
+        if self.path and (
+            'vocabulary.json' in self.path
+            or self.path == '/'
+            or self.path.startswith('/index.html')
+            or self.path.startswith('/import.html')
+            or self.path.startswith('/service-worker.js')
+            or self.path.startswith('/vocabris_game.jsx')
+        ):
             self.send_header('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0')
             self.send_header('Pragma', 'no-cache')
             self.send_header('Expires', '0')

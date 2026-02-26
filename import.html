@@ -27,10 +27,29 @@
 
         <!-- Main Content -->
         <div class="p-6 space-y-6">
-            <!-- Step 1: Input New CSV Name -->
+            <!-- Step 1: Upload File -->
             <div class="bg-gray-50 p-6 rounded-xl border-2 border-gray-200">
                 <h2 class="text-xl font-bold text-gray-800 mb-4 flex items-center gap-2">
-                    <span class="bg-blue-600 text-white w-8 h-8 rounded-full flex items-center justify-center text-sm">1</span>
+                    <span class="bg-green-600 text-white w-8 h-8 rounded-full flex items-center justify-center text-sm">1</span>
+                    上傳單字檔案 | Upload Vocabulary File
+                </h2>
+                <div class="flex items-center gap-4">
+                    <label for="fileUpload" class="flex-1 cursor-pointer">
+                        <div class="border-2 border-dashed border-gray-400 hover:border-green-500 rounded-lg p-8 text-center transition-all">
+                            <div class="text-5xl mb-2">📄</div>
+                            <p class="text-gray-600 font-medium">點擊選擇檔案</p>
+                            <p class="text-sm text-gray-400 mt-1">支援 .json, .txt, .csv 格式</p>
+                            <p id="uploadedFileName" class="text-sm text-green-600 font-bold mt-2"></p>
+                        </div>
+                    </label>
+                    <input type="file" id="fileUpload" accept=".json,.txt,.csv" class="hidden">
+                </div>
+            </div>
+
+            <!-- Step 2: Input New CSV Name -->
+            <div class="bg-gray-50 p-6 rounded-xl border-2 border-gray-200">
+                <h2 class="text-xl font-bold text-gray-800 mb-4 flex items-center gap-2">
+                    <span class="bg-blue-600 text-white w-8 h-8 rounded-full flex items-center justify-center text-sm">2</span>
                     輸入新 CSV 檔案名稱 | Enter New CSV Filename
                 </h2>
                 <div class="flex items-center gap-4">
@@ -38,18 +57,17 @@
                         type="text" 
                         id="csvFileName" 
                         placeholder="例如: my_custom_words"
-                        oninput="handleFileNameInput()"
                         class="flex-1 px-4 py-3 border-2 border-gray-300 rounded-lg text-lg focus:outline-none focus:border-blue-500"
                     >
                     <span class="text-gray-600 font-medium">.csv</span>
                 </div>
-                <p class="text-sm text-gray-500 mt-2">⚠️ 如果檔名已存在，將會被覆蓋</p>
+                <p class="text-sm text-gray-500 mt-2">⚠️ 預設會使用上傳檔名，可自行修改；若檔名已存在將會被覆蓋</p>
             </div>
 
-            <!-- Step 2: Select Difficulty Level -->
+            <!-- Step 3: Select Difficulty Level -->
             <div class="bg-gray-50 p-6 rounded-xl border-2 border-gray-200">
                 <h2 class="text-xl font-bold text-gray-800 mb-4 flex items-center gap-2">
-                    <span class="bg-purple-600 text-white w-8 h-8 rounded-full flex items-center justify-center text-sm">2</span>
+                    <span class="bg-purple-600 text-white w-8 h-8 rounded-full flex items-center justify-center text-sm">3</span>
                     選擇難度級別 | Select Difficulty Level
                 </h2>
                 <select id="levelSelect" class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg text-lg focus:outline-none focus:border-purple-500">
@@ -60,28 +78,9 @@
                 <p class="text-sm text-gray-500 mt-2">💡 這個設定會影響遊戲中的難度分類</p>
             </div>
 
-            <!-- Step 3: Upload File -->
-            <div class="bg-gray-50 p-6 rounded-xl border-2 border-gray-200">
-                <h2 class="text-xl font-bold text-gray-800 mb-4 flex items-center gap-2">
-                    <span class="bg-green-600 text-white w-8 h-8 rounded-full flex items-center justify-center text-sm">3</span>
-                    上傳單字檔案 | Upload Vocabulary File
-                </h2>
-                <div class="flex items-center gap-4">
-                    <label for="fileUpload" class="flex-1 cursor-pointer">
-                        <div class="border-2 border-dashed border-gray-400 hover:border-green-500 rounded-lg p-8 text-center transition-all">
-                            <div class="text-5xl mb-2">📄</div>
-                            <p class="text-gray-600 font-medium">點擊選擇檔案</p>
-                            <p class="text-sm text-gray-400 mt-1">支援 .json, .js, .txt 格式</p>
-                            <p id="uploadedFileName" class="text-sm text-green-600 font-bold mt-2"></p>
-                        </div>
-                    </label>
-                    <input type="file" id="fileUpload" accept=".json,.js,.txt" class="hidden" onchange="handleFileSelect(event)">
-                </div>
-            </div>
-
             <!-- Step 4: Process Button -->
             <div class="flex gap-4">
-                <button id="processBtn" onclick="alert('Direct onclick test!'); handleProcessClick();" class="btn-disabled flex-1 bg-gradient-to-r from-green-600 to-teal-600 hover:from-green-700 hover:to-teal-700 text-white font-bold py-4 rounded-xl transition-all shadow-lg cursor-pointer">
+                <button id="processBtn" class="btn-disabled flex-1 bg-gradient-to-r from-green-600 to-teal-600 hover:from-green-700 hover:to-teal-700 text-white font-bold py-4 rounded-xl transition-all shadow-lg cursor-pointer">
                     🚀 生成 CSV 檔案 | Generate CSV File
                 </button>
                 <button id="previewBtn" class="btn-disabled px-6 bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 rounded-xl transition-all cursor-pointer">
@@ -136,337 +135,14 @@
     </div>
 
     <script>
-        console.log('=== Script tag loaded ===');
-        console.log('Document ready state:', document.readyState);
-        
-        let selectedFile = null;
-        let extractedWords = [];
-        
-        // Global filename input handler
-        window.handleFileNameInput = function() {
-            const csvFileName = document.getElementById('csvFileName');
-            const processBtn = document.getElementById('processBtn');
-            const previewBtn = document.getElementById('previewBtn');
-            
-            const canProcess = selectedFile && csvFileName.value.trim();
-            if (canProcess) {
-                processBtn.classList.remove('btn-disabled');
-                previewBtn.classList.remove('btn-disabled');
-            } else {
-                processBtn.classList.add('btn-disabled');
-                previewBtn.classList.add('btn-disabled');
-            }
-        };
-        
-        // Global file select handler
-        window.handleFileSelect = function(event) {
-            selectedFile = event.target.files[0];
-            const uploadedFileName = document.getElementById('uploadedFileName');
-            const processBtn = document.getElementById('processBtn');
-            const previewBtn = document.getElementById('previewBtn');
-            const csvFileName = document.getElementById('csvFileName');
-            
-            if (selectedFile) {
-                uploadedFileName.textContent = `已選擇: ${selectedFile.name}`;
-                
-                // Check if we can enable buttons
-                const canProcess = selectedFile && csvFileName.value.trim();
-                if (canProcess) {
-                    processBtn.classList.remove('btn-disabled');
-                    previewBtn.classList.remove('btn-disabled');
-                } else {
-                    processBtn.classList.add('btn-disabled');
-                    previewBtn.classList.add('btn-disabled');
-                }
-                
-                alert('檔案已選擇: ' + selectedFile.name);
-            }
-        };
-        
-        // Global function for onclick handler
-        window.handleProcessClick = async function() {
-            const processBtn = document.getElementById('processBtn');
-            
-            // Check if button is disabled
-            if (processBtn.classList.contains('btn-disabled')) {
-                alert('請先輸入檔案名稱並上傳檔案！');
-                return;
-            }
-            
-            alert('按鈕被點擊了！Button clicked!');
-            
-            const clickIndicator = document.getElementById('clickIndicator');
-            const csvFileName = document.getElementById('csvFileName');
-            const levelSelect = document.getElementById('levelSelect');
-            const statusArea = document.getElementById('statusArea');
-            const statusText = document.getElementById('statusText');
-            const resultArea = document.getElementById('resultArea');
-            const resultText = document.getElementById('resultText');
-            const errorArea = document.getElementById('errorArea');
-            const errorText = document.getElementById('errorText');
-            
-            if (!selectedFile) {
-                alert('請先上傳檔案！');
-                return;
-            }
-            
-            try {
-                clickIndicator.classList.remove('hidden');
-                
-                const newFileName = csvFileName.value.trim();
-                if (!newFileName) {
-                    clickIndicator.classList.add('hidden');
-                    alert('請輸入 CSV 檔案名稱');
-                    return;
-                }
-
-                const fullFileName = newFileName.endsWith('.csv') ? newFileName : `${newFileName}.csv`;
-                clickIndicator.classList.add('hidden');
-                
-                const userConfirmed = confirm(`確定要創建新的 CSV 檔案 "${fullFileName}" 嗎？\n\nAre you sure you want to create new CSV file "${fullFileName}"?`);
-                
-                if (!userConfirmed) {
-                    return;
-                }
-
-                // Hide all messages
-                statusArea.classList.remove('hidden');
-                resultArea.classList.add('hidden');
-                errorArea.classList.add('hidden');
-                statusText.textContent = '正在分析檔案內容...';
-
-                // Extract words from file
-                const result = await extractWordsFromFile(selectedFile);
-                const words = result.words;
-                
-                if (words.length === 0) {
-                    throw new Error('檔案中未找到有效的單字資料');
-                }
-
-                statusText.textContent = `已提取 ${words.length} 個單字，正在生成 CSV...`;
-
-                // Create new CSV file
-                const response = await createNewCSVFile(fullFileName, levelSelect.value, words);
-
-                // Show success
-                statusArea.classList.add('hidden');
-                resultArea.classList.remove('hidden');
-                resultText.textContent = `成功創建 ${fullFileName}，包含 ${words.length} 個單字！檔案已加入 ${levelSelect.value} 難度級別。`;
-                
-                // Reset form
-                setTimeout(() => {
-                    selectedFile = null;
-                    extractedWords = [];
-                    const fileUpload = document.getElementById('fileUpload');
-                    const uploadedFileName = document.getElementById('uploadedFileName');
-                    fileUpload.value = '';
-                    uploadedFileName.textContent = '';
-                    csvFileName.value = '';
-                    processBtn.classList.add('btn-disabled');
-                    document.getElementById('previewBtn').classList.add('btn-disabled');
-                    resultArea.classList.add('hidden');
-                }, 5000);
-
-            } catch (error) {
-                statusArea.classList.add('hidden');
-                errorArea.classList.remove('hidden');
-                errorText.textContent = '處理失敗: ' + error.message;
-            }
-        };
-        
-        // Helper functions - moved to global scope
-        async function extractWordsFromFile(file) {
-            const fileExtension = file.name.split('.').pop().toLowerCase();
-            let rawText = '';
-            
-            if (fileExtension === 'json') {
-                rawText = await file.text();
-                const jsonData = JSON.parse(rawText);
-                return {
-                    words: parseJSONFormat(jsonData),
-                    rawText: rawText
-                };
-            } else if (fileExtension === 'js') {
-                rawText = await file.text();
-                const jsonMatch = rawText.match(/=\s*(\{[\s\S]*\}|\[[\s\S]*\])/);
-                if (jsonMatch) {
-                    const jsonData = eval('(' + jsonMatch[1] + ')');
-                    return {
-                        words: parseJSONFormat(jsonData),
-                        rawText: rawText
-                    };
-                }
-                throw new Error('無法從 JS 檔案中解析單字資料');
-            } else if (fileExtension === 'txt') {
-                rawText = await file.text();
-                return {
-                    words: parseTextFormat(rawText),
-                    rawText: rawText
-                };
-            } else {
-                throw new Error('不支援的檔案格式');
-            }
-        }
-
-        function parseJSONFormat(data) {
-            const words = [];
-            if (Array.isArray(data)) {
-                data.forEach(item => {
-                    if (item.word && item.meaning) {
-                        words.push({
-                            word: item.word.toUpperCase(),
-                            meaning: item.meaning,
-                            options: item.options || generateDummyOptions(item.meaning)
-                        });
-                    }
-                });
-            } else if (typeof data === 'object') {
-                Object.keys(data).forEach(level => {
-                    if (Array.isArray(data[level])) {
-                        data[level].forEach(item => {
-                            if (item.word && item.meaning) {
-                                words.push({
-                                    word: item.word.toUpperCase(),
-                                    meaning: item.meaning,
-                                    options: item.options || generateDummyOptions(item.meaning)
-                                });
-                            }
-                        });
-                    }
-                });
-            }
-            return words;
-        }
-
-        function parseTextFormat(text) {
-            const words = [];
-            const lines = text.split('\n');
-            
-            for (let i = 0; i < lines.length; i++) {
-                let line = lines[i].trim();
-                if (!line) continue;
-                if (line.match(/^(主題|教育部|規定|必背)/)) continue;
-                
-                const multiWordPattern = /(\d+)\s+([a-zA-Z][a-zA-Z\-]+)\s+([\u4e00-\u9fa5][^\d]*?)(?=\s+\d+|$)/g;
-                let matches;
-                let foundInLine = false;
-                
-                while ((matches = multiWordPattern.exec(line)) !== null) {
-                    const word = matches[2].trim().toUpperCase();
-                    const meaning = matches[3].trim();
-                    
-                    if (word.length >= 2 && word.length <= 20 && meaning) {
-                        words.push({
-                            word: word,
-                            meaning: meaning,
-                            options: generateDummyOptions(meaning)
-                        });
-                        foundInLine = true;
-                    }
-                }
-                
-                if (foundInLine) continue;
-                
-                const match1 = line.match(/^(\d+)[.\s]+([a-zA-Z][a-zA-Z\-]+)\s+([\u4e00-\u9fa5].*)/);
-                if (match1) {
-                    const word = match1[2].trim().toUpperCase();
-                    const meaning = match1[3].trim();
-                    if (word.length >= 2 && word.length <= 20) {
-                        words.push({
-                            word: word,
-                            meaning: meaning,
-                            options: generateDummyOptions(meaning)
-                        });
-                    }
-                    continue;
-                }
-                
-                const match2 = line.match(/^([A-Z][A-Z\-]+)\s*[-:：]\s*(.+)$/);
-                if (match2) {
-                    const word = match2[1].trim();
-                    const meaning = match2[2].trim();
-                    if (word.length >= 2 && word.length <= 20) {
-                        words.push({
-                            word: word,
-                            meaning: meaning,
-                            options: generateDummyOptions(meaning)
-                        });
-                    }
-                    continue;
-                }
-                
-                const match3 = line.match(/^([a-zA-Z][a-zA-Z\-]+)\s+([\u4e00-\u9fa5].*)/);
-                if (match3) {
-                    const word = match3[1].trim().toUpperCase();
-                    const meaning = match3[2].trim();
-                    if (word.length >= 2 && word.length <= 20) {
-                        words.push({
-                            word: word,
-                            meaning: meaning,
-                            options: generateDummyOptions(meaning)
-                        });
-                    }
-                }
-            }
-            
-            const uniqueWords = {};
-            words.forEach(w => {
-                if (!uniqueWords[w.word]) {
-                    uniqueWords[w.word] = w;
-                }
-            });
-            
-            return Object.values(uniqueWords);
-        }
-
-        function generateDummyOptions(correctMeaning) {
-            const baseOptions = ['其他意思A', '其他意思B', '其他意思C'];
-            if (correctMeaning.includes('、') || correctMeaning.includes('，')) {
-                const parts = correctMeaning.split(/[、，]/);
-                if (parts.length >= 2) {
-                    const shuffled = [...parts].sort(() => Math.random() - 0.5);
-                    return [
-                        shuffled[0] || baseOptions[0],
-                        shuffled[1] || baseOptions[1],
-                        shuffled[2] || baseOptions[2]
-                    ];
-                }
-            }
-            return baseOptions;
-        }
-
-        async function createNewCSVFile(filename, level, words) {
-            const csvData = convertToCSV(words);
-            const response = await fetch('/api/create-csv', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ filename: filename, level: level, data: csvData })
-            });
-            if (!response.ok) {
-                throw new Error('伺服器創建檔案失敗');
-            }
-            return await response.json();
-        }
-
-        function convertToCSV(words) {
-            const headers = 'word,meaning,option1,option2,option3,Ginger,River,Sigma';
-            const rows = words.map(w => {
-                return `${w.word},${w.meaning},${w.options[0]},${w.options[1]},${w.options[2]},0,0,0`;
-            });
-            return headers + '\n' + rows.join('\n');
-        }
-        
-        // Wait for DOM to be ready
-        console.log('Adding DOMContentLoaded listener...');
-        document.addEventListener('DOMContentLoaded', function() {
-            console.log('=== DOM loaded, initializing... ===');
-            
+        document.addEventListener('DOMContentLoaded', () => {
             const csvFileName = document.getElementById('csvFileName');
             const levelSelect = document.getElementById('levelSelect');
             const fileUpload = document.getElementById('fileUpload');
             const uploadedFileName = document.getElementById('uploadedFileName');
             const processBtn = document.getElementById('processBtn');
             const previewBtn = document.getElementById('previewBtn');
+            const clickIndicator = document.getElementById('clickIndicator');
             const statusArea = document.getElementById('statusArea');
             const statusText = document.getElementById('statusText');
             const previewArea = document.getElementById('previewArea');
@@ -477,365 +153,457 @@
             const resultText = document.getElementById('resultText');
             const errorArea = document.getElementById('errorArea');
             const errorText = document.getElementById('errorText');
-            const clickIndicator = document.getElementById('clickIndicator');
 
-            console.log('Elements found:', {
-                csvFileName: !!csvFileName,
-                processBtn: !!processBtn,
-                previewBtn: !!previewBtn,
-                fileUpload: !!fileUpload
-            });
+            let selectedFile = null;
+            let lastAutoFileName = '';
 
-            if (!processBtn) {
-                console.error('Process button not found!');
-                return;
-            }
+            updateButtons();
 
-            console.log('Setting up event listeners...');
+            fileUpload.addEventListener('change', (event) => {
+                selectedFile = event.target.files[0] || null;
+                uploadedFileName.textContent = selectedFile ? `已選擇: ${selectedFile.name}` : '';
 
-            // File selection handler
-            fileUpload.addEventListener('change', (e) => {
-                console.log('File input changed');
-                selectedFile = e.target.files[0];
                 if (selectedFile) {
-                    console.log('File selected:', selectedFile.name);
-                    uploadedFileName.textContent = `已選擇: ${selectedFile.name}`;
-                    checkEnableButtons();
-                } else {
-                    console.log('No file selected');
+                    const suggestedName = sanitizeFileBaseName(selectedFile.name.replace(/\.[^.]+$/, ''));
+                    const currentName = csvFileName.value.trim();
+                    if (!currentName || currentName === lastAutoFileName) {
+                        csvFileName.value = suggestedName;
+                    }
+                    lastAutoFileName = suggestedName;
                 }
+
+                updateButtons();
             });
 
-            // CSV filename input handler
-            csvFileName.addEventListener('input', () => {
-                console.log('Filename input changed:', csvFileName.value);
-                checkEnableButtons();
-            });
+            csvFileName.addEventListener('input', updateButtons);
 
-            function checkEnableButtons() {
-                const canProcess = selectedFile && csvFileName.value.trim();
-                if (canProcess) {
-                    processBtn.classList.remove('btn-disabled');
-                    previewBtn.classList.remove('btn-disabled');
-                } else {
-                    processBtn.classList.add('btn-disabled');
-                    previewBtn.classList.add('btn-disabled');
-                }
-                console.log('Button state:', { 
-                    hasFile: !!selectedFile, 
-                    hasName: !!csvFileName.value.trim(), 
-                    canProcess
-                });
-            }
-
-            // Preview button handler
             previewBtn.addEventListener('click', async () => {
-            hideAllMessages();
-            statusArea.classList.remove('hidden');
-            statusText.textContent = '正在分析檔案內容...';
-
-            try {
-                const result = await extractWordsFromFile(selectedFile);
-                extractedWords = result.words;
-                
-                // Show debug text
-                debugArea.classList.remove('hidden');
-                debugText.textContent = result.rawText.substring(0, 2000);
-                
-                if (extractedWords.length === 0) {
-                    throw new Error('檔案中未找到有效的單字資料，請檢查檔案格式');
+                if (!isReady()) {
+                    showError('請先輸入 CSV 檔案名稱並選擇檔案');
+                    return;
                 }
 
-                displayPreview(extractedWords);
-                statusArea.classList.add('hidden');
-            } catch (error) {
-                console.error('Preview error:', error);
-                showError('預覽失敗: ' + error.message);
-            }
+                hideAllMessages();
+                statusArea.classList.remove('hidden');
+                statusText.textContent = '正在分析檔案內容...';
+
+                try {
+                    const result = await extractWordsFromFile(selectedFile);
+
+                    if (result.words.length === 0) {
+                        throw new Error('檔案中未找到有效的單字資料，請檢查檔案格式');
+                    }
+
+                    debugArea.classList.remove('hidden');
+                    debugText.textContent = result.rawText.substring(0, 2000);
+                    displayPreview(result.words);
+                    statusArea.classList.add('hidden');
+                } catch (error) {
+                    showError('預覽失敗: ' + error.message);
+                }
             });
 
-            // Process button handler - Using addEventListener
-            console.log('Setting up processBtn click handler...');
-            processBtn.addEventListener('click', async (e) => {
-                console.log('=== Process button clicked (addEventListener) ===');
-                
-                // Show click indicator immediately
+            processBtn.addEventListener('click', async () => {
+                if (!isReady()) {
+                    showError('請先輸入 CSV 檔案名稱並選擇檔案');
+                    return;
+                }
+
+                const newFileName = csvFileName.value.trim();
+                const fullFileName = newFileName.endsWith('.csv') ? newFileName : `${newFileName}.csv`;
+
+                const userConfirmed = confirm(`確定要創建新的 CSV 檔案 "${fullFileName}" 嗎？\n\nAre you sure you want to create new CSV file "${fullFileName}"?`);
+                if (!userConfirmed) return;
+
+                hideAllMessages();
                 clickIndicator.classList.remove('hidden');
-                
-                // Don't check disabled state - let CSS handle visual feedback
-                e.preventDefault();
-                e.stopPropagation();
-                
+                statusArea.classList.remove('hidden');
+                statusText.textContent = '正在分析檔案內容...';
+
                 try {
-                    const newFileName = csvFileName.value.trim();
-                    console.log('1. Filename:', newFileName);
-                    
-                    if (!newFileName) {
-                        console.log('No filename provided');
-                        clickIndicator.classList.add('hidden');
-                        showError('請輸入 CSV 檔案名稱');
-                        return;
-                    }
-
-                    const fullFileName = newFileName.endsWith('.csv') ? newFileName : `${newFileName}.csv`;
-                    console.log('2. Full filename:', fullFileName);
-                    
-                    clickIndicator.classList.add('hidden');
-                    const userConfirmed = confirm(`確定要創建新的 CSV 檔案 "${fullFileName}" 嗎？\n\nAre you sure you want to create new CSV file "${fullFileName}"?`);
-                    console.log('3. User confirmed:', userConfirmed);
-                    
-                    if (!userConfirmed) {
-                        console.log('User cancelled');
-                        return;
-                    }
-
-                    console.log('4. Hiding messages...');
-                    hideAllMessages();
-                    statusArea.classList.remove('hidden');
-                    statusText.textContent = '正在分析檔案內容...';
-
-                    console.log('5. Starting extraction...');
-                    
-                    // Step 1: Extract words from file
                     const result = await extractWordsFromFile(selectedFile);
                     const words = result.words;
-                    
-                    console.log('6. Extracted words:', words.length);
-                    
+
                     if (words.length === 0) {
                         throw new Error('檔案中未找到有效的單字資料');
                     }
 
                     statusText.textContent = `已提取 ${words.length} 個單字，正在生成 CSV...`;
+                    await createNewCSVFile(fullFileName, levelSelect.value, words);
 
-                    // Step 2: Create new CSV file
-                    console.log('7. Creating CSV file...');
-                    const response = await createNewCSVFile(fullFileName, levelSelect.value, words);
-                    console.log('8. Server response:', response);
-
-                    // Step 3: Show success
-                    console.log('9. Success!');
+                    clickIndicator.classList.add('hidden');
                     statusArea.classList.add('hidden');
                     resultArea.classList.remove('hidden');
                     resultText.textContent = `成功創建 ${fullFileName}，包含 ${words.length} 個單字！檔案已加入 ${levelSelect.value} 難度級別。`;
-                    
-                    // Redirect back to index.html vocabulary manager after 2 seconds
+
                     setTimeout(() => {
-                        // Close current tab and return to parent window
                         if (window.opener) {
-                            // If opened from another window, notify parent to refresh
                             window.opener.postMessage({ type: 'CSV_CREATED', filename: fullFileName }, '*');
                             window.close();
+                        } else if (window.parent && window.parent !== window) {
+                            window.parent.postMessage({ type: 'CSV_CREATED', filename: fullFileName }, '*');
                         } else {
-                            // Otherwise, redirect to index.html
                             window.location.href = '/index.html?view=vocabulary';
                         }
                     }, 2000);
-
                 } catch (error) {
-                    console.error('=== Processing error ===', error);
+                    clickIndicator.classList.add('hidden');
                     showError('處理失敗: ' + error.message);
                 }
             });
 
-            console.log('All event handlers set up successfully');
+            function isReady() {
+                return Boolean(selectedFile && csvFileName.value.trim());
+            }
 
-            // Helper functions
+            function updateButtons() {
+                const canProcess = isReady();
+                processBtn.disabled = !canProcess;
+                previewBtn.disabled = !canProcess;
+                processBtn.classList.toggle('btn-disabled', !canProcess);
+                previewBtn.classList.toggle('btn-disabled', !canProcess);
+            }
+
             async function extractWordsFromFile(file) {
+                if (!file) {
+                    throw new Error('請先選擇檔案');
+                }
+
                 const fileExtension = file.name.split('.').pop().toLowerCase();
-                let rawText = '';
-                
+                const rawText = await readTextWithEncoding(file);
+
                 if (fileExtension === 'json') {
-                    // Parse JSON file
-                    rawText = await file.text();
-                    const jsonData = JSON.parse(rawText);
-                    return {
-                        words: parseJSONFormat(jsonData),
-                        rawText: rawText
-                    };
-                } else if (fileExtension === 'js') {
-                    // Parse JS file (expect WORD_DATABASE format or array)
-                    rawText = await file.text();
-                    // Try to extract JSON-like structure
-                    const jsonMatch = rawText.match(/=\s*(\{[\s\S]*\}|\[[\s\S]*\])/);
-                    if (jsonMatch) {
-                        const jsonData = eval('(' + jsonMatch[1] + ')');
-                        return {
-                            words: parseJSONFormat(jsonData),
-                            rawText: rawText
-                        };
-                    }
-                    throw new Error('無法從 JS 檔案中解析單字資料');
-                } else if (fileExtension === 'txt') {
-                    // Parse plain text file
-                    rawText = await file.text();
-                    return {
-                        words: parseTextFormat(rawText),
-                        rawText: rawText
-                    };
-                } else {
-                    throw new Error('不支援的檔案格式');
+                    return { words: parseJSONFormat(parseJSONSafely(rawText)), rawText };
+                }
+
+                if (fileExtension === 'txt') {
+                    return { words: parseTextFormat(rawText), rawText };
+                }
+
+                if (fileExtension === 'csv') {
+                    return { words: parseCSVFormat(rawText), rawText };
+                }
+
+                throw new Error('不支援的檔案格式，請使用 .json / .txt / .csv');
+            }
+
+            async function readTextWithEncoding(file) {
+                const buffer = await file.arrayBuffer();
+                const candidates = ['utf-8', 'big5', 'gb18030']
+                    .map((encoding) => ({
+                        encoding,
+                        text: stripBom(decodeText(buffer, encoding))
+                    }))
+                    .filter((item) => item.text);
+
+                if (candidates.length === 0) return '';
+
+                candidates.sort((a, b) => scoreTextQuality(b.text) - scoreTextQuality(a.text));
+                return candidates[0].text;
+            }
+
+            function decodeText(buffer, encoding) {
+                try {
+                    return new TextDecoder(encoding).decode(buffer);
+                } catch (error) {
+                    return '';
+                }
+            }
+
+            function stripBom(text) {
+                return String(text || '').replace(/^\uFEFF/, '');
+            }
+
+            function looksGarbled(text) {
+                if (!text) return false;
+                const replacementCount = (text.match(/�/g) || []).length;
+                return replacementCount >= 3;
+            }
+
+            function scoreTextQuality(text) {
+                if (!text) return -999999;
+                const replacementCount = (text.match(/�/g) || []).length;
+                const cjkCount = (text.match(/[\u3400-\u9FFF]/g) || []).length;
+                const mojibakeCount = (text.match(/[ÃâÐÑØÙÚÛÜÝÞß]/g) || []).length;
+                const controlCount = (text.match(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g) || []).length;
+
+                return cjkCount * 2 - replacementCount * 8 - mojibakeCount * 3 - controlCount * 10;
+            }
+
+            function parseJSONSafely(text) {
+                const cleaned = stripBom(text).trim();
+
+                try {
+                    return JSON.parse(cleaned);
+                } catch (error) {
+                    const noComments = cleaned
+                        .replace(/\/\*[\s\S]*?\*\//g, '')
+                        .replace(/^\s*\/\/.*$/gm, '');
+                    return JSON.parse(noComments);
                 }
             }
 
             function parseJSONFormat(data) {
-                const words = [];
-                
-                // Handle different JSON structures
-                if (Array.isArray(data)) {
-                    // Array of word objects: [{word: "...", meaning: "...", options: [...]}, ...]
-                    data.forEach(item => {
-                        if (item.word && item.meaning) {
-                            words.push({
-                                word: item.word.toUpperCase(),
-                                meaning: item.meaning,
-                                options: item.options || generateDummyOptions(item.meaning)
-                            });
-                        }
-                    });
-                } else if (typeof data === 'object') {
-                    // Object with levels: {elementary: [...], intermediate: [...], ...}
-                    Object.keys(data).forEach(level => {
-                        if (Array.isArray(data[level])) {
-                            data[level].forEach(item => {
-                                if (item.word && item.meaning) {
-                                    words.push({
-                                        word: item.word.toUpperCase(),
-                                        meaning: item.meaning,
-                                        options: item.options || generateDummyOptions(item.meaning)
-                                    });
-                                }
-                            });
-                        }
-                    });
+                const rows = [];
+
+                collectWordItems(data, rows);
+                return deduplicate(rows);
+            }
+
+            function collectWordItems(node, collector) {
+                if (!node) return;
+
+                if (Array.isArray(node)) {
+                    node.forEach((item) => collectWordItems(item, collector));
+                    return;
                 }
-                
-                return words;
+
+                if (typeof node !== 'object') return;
+
+                const word = firstDefinedValue(node, ['word', 'Word', 'vocab', 'term', 'english', 'en', 'name']);
+                const meaning = firstDefinedValue(node, ['meaning', 'Meaning', 'definition', 'chinese', 'zh', 'translation', 'desc', 'description']);
+                const options = firstDefinedValue(node, ['options', 'choices', 'option']);
+
+                if (word && meaning) {
+                    collector.push(normalizeWordItem(word, meaning, options));
+                }
+
+                Object.values(node).forEach((value) => {
+                    if (Array.isArray(value) || (value && typeof value === 'object')) {
+                        collectWordItems(value, collector);
+                    }
+                });
+            }
+
+            function firstDefinedValue(obj, keys) {
+                for (const key of keys) {
+                    if (obj[key] !== undefined && obj[key] !== null && String(obj[key]).trim() !== '') {
+                        return obj[key];
+                    }
+                }
+                return null;
             }
 
             function parseTextFormat(text) {
-                const words = [];
-                const lines = text.split('\n');
-                
-                for (let i = 0; i < lines.length; i++) {
-                    let line = lines[i].trim();
-                    if (!line) continue;
-                
-                // 跳過標題行
-                if (line.match(/^(主題|教育部|規定|必背)/)) continue;
-                
-                // Pattern 1: 一行中有多個單字 (如: "1 adult 成人 8 handsome 帥的")
-                const multiWordPattern = /(\d+)\s+([a-zA-Z][a-zA-Z\-]+)\s+([\u4e00-\u9fa5][^\d]*?)(?=\s+\d+|$)/g;
-                let matches;
-                let foundInLine = false;
-                
-                while ((matches = multiWordPattern.exec(line)) !== null) {
-                    const word = matches[2].trim().toUpperCase();
-                    const meaning = matches[3].trim();
-                    
-                    if (word.length >= 2 && word.length <= 20 && meaning) {
-                        words.push({
-                            word: word,
-                            meaning: meaning,
-                            options: generateDummyOptions(meaning)
-                        });
+                const rows = [];
+                const lines = text.split(/\r?\n/);
+
+                for (const rawLine of lines) {
+                    const line = rawLine.trim();
+                    if (!line || /^(主題|教育部|規定|必背)/.test(line)) continue;
+
+                    const multiWordPattern = /(\d+)[.)\s]+([a-zA-Z][a-zA-Z\-']+)\s+([^\d]+?)(?=\s+\d+[.)\s]|$)/g;
+                    let match;
+                    let foundInLine = false;
+
+                    while ((match = multiWordPattern.exec(line)) !== null) {
+                        rows.push(normalizeWordItem(match[2], match[3]));
                         foundInLine = true;
                     }
-                }
-                
-                if (foundInLine) continue;
-                
-                // Pattern 2: "數字 word 中文釋義"
-                const match1 = line.match(/^\d+\s+([a-zA-Z][a-zA-Z\-]+)\s+([\u4e00-\u9fa5].*)/);
-                if (match1) {
-                    const word = match1[1].trim().toUpperCase();
-                    const meaning = match1[2].trim();
-                    if (word.length >= 2 && word.length <= 20) {
-                        words.push({
-                            word: word,
-                            meaning: meaning,
-                            options: generateDummyOptions(meaning)
-                        });
+                    if (foundInLine) continue;
+
+                    const numbered = line.match(/^(\d+)[.)\s]+([a-zA-Z][a-zA-Z\-']+)\s+(.+)$/);
+                    if (numbered) {
+                        rows.push(normalizeWordItem(numbered[2], numbered[3]));
+                        continue;
                     }
-                    continue;
-                }
-                
-                // Pattern 3: "WORD - meaning" or "WORD: meaning"
-                const match2 = line.match(/^([A-Z][A-Z\-]+)\s*[-:：]\s*(.+)$/);
-                if (match2) {
-                    const word = match2[1].trim();
-                    const meaning = match2[2].trim();
-                    if (word.length >= 2 && word.length <= 20) {
-                        words.push({
-                            word: word,
-                            meaning: meaning,
-                            options: generateDummyOptions(meaning)
-                        });
+
+                    const colonStyle = line.match(/^([a-zA-Z][a-zA-Z\-']+)\s*[-:：]\s*(.+)$/);
+                    if (colonStyle) {
+                        rows.push(normalizeWordItem(colonStyle[1], colonStyle[2]));
+                        continue;
                     }
-                    continue;
-                }
-                
-                // Pattern 4: "word 中文"
-                const match3 = line.match(/^([a-zA-Z][a-zA-Z\-]+)\s+([\u4e00-\u9fa5].*)/);
-                if (match3) {
-                    const word = match3[1].trim().toUpperCase();
-                    const meaning = match3[2].trim();
-                    if (word.length >= 2 && word.length <= 20) {
-                        words.push({
-                            word: word,
-                            meaning: meaning,
-                            options: generateDummyOptions(meaning)
-                        });
+
+                    const splitBySpace = line.match(/^([a-zA-Z][a-zA-Z\-']+)\s+(.+)$/);
+                    if (splitBySpace) {
+                        rows.push(normalizeWordItem(splitBySpace[1], splitBySpace[2]));
                     }
                 }
+
+                return deduplicate(rows).filter((item) => item.word.length >= 2 && item.word.length <= 30 && item.meaning);
             }
-            
-            // 去重
-            const uniqueWords = {};
-            words.forEach(w => {
-                if (!uniqueWords[w.word]) {
-                    uniqueWords[w.word] = w;
+
+            function parseCSVFormat(text) {
+                const delimiter = detectCSVDelimiter(text);
+                const parsedRows = parseCSVRows(text, delimiter)
+                    .map((row) => row.map((cell) => String(cell || '').trim()))
+                    .filter((row) => row.some((cell) => cell !== ''));
+
+                if (parsedRows.length === 0) return [];
+
+                const header = parsedRows[0].map((cell) => normalizeHeaderName(cell));
+                const headerLooksValid = isHeaderRow(header);
+
+                const wordIndex = headerLooksValid ? findHeaderIndex(header, ['word', '單字', '英文', '英文字', 'vocab', 'term']) : 0;
+                const meaningIndex = headerLooksValid ? findHeaderIndex(header, ['meaning', '意思', '中文', '翻譯', '解釋', 'definition']) : 1;
+
+                if (wordIndex < 0 || meaningIndex < 0) {
+                    throw new Error('CSV 無法判斷單字欄位，請確認至少有「單字/意思」兩欄');
                 }
-            });
-            
-            console.log(`Parsed ${Object.keys(uniqueWords).length} unique words from ${words.length} total matches`);
-                return Object.values(uniqueWords);
+
+                const optionIndexes = headerLooksValid
+                    ? [
+                        findHeaderIndex(header, ['option1', '選項1', '干擾1']),
+                        findHeaderIndex(header, ['option2', '選項2', '干擾2']),
+                        findHeaderIndex(header, ['option3', '選項3', '干擾3'])
+                    ]
+                    : [2, 3, 4];
+
+                const wordRows = [];
+
+                for (let i = headerLooksValid ? 1 : 0; i < parsedRows.length; i++) {
+                    const cells = parsedRows[i];
+                    const word = cells[wordIndex] || '';
+                    const meaning = cells[meaningIndex] || '';
+                    if (!word || !meaning) continue;
+
+                    const options = optionIndexes.map((idx) => (idx >= 0 ? cells[idx] : '')).filter(Boolean);
+                    wordRows.push(normalizeWordItem(word, meaning, options));
+                }
+
+                return deduplicate(wordRows);
+            }
+
+            function detectCSVDelimiter(text) {
+                const sample = text.slice(0, 3000);
+                const candidates = [',', '\t', ';'];
+                let best = ',';
+                let bestScore = -1;
+
+                for (const delimiter of candidates) {
+                    const score = (sample.match(new RegExp(delimiter === '\t' ? '\\t' : `\\${delimiter}`, 'g')) || []).length;
+                    if (score > bestScore) {
+                        best = delimiter;
+                        bestScore = score;
+                    }
+                }
+
+                return best;
+            }
+
+            function parseCSVRows(text, delimiter) {
+                const parsedRows = [];
+                let row = [];
+                let cell = '';
+                let inQuotes = false;
+
+                for (let i = 0; i < text.length; i++) {
+                    const char = text[i];
+                    const next = text[i + 1];
+
+                    if (char === '"') {
+                        if (inQuotes && next === '"') {
+                            cell += '"';
+                            i++;
+                        } else {
+                            inQuotes = !inQuotes;
+                        }
+                        continue;
+                    }
+
+                    if (!inQuotes && char === delimiter) {
+                        row.push(cell);
+                        cell = '';
+                        continue;
+                    }
+
+                    if (!inQuotes && (char === '\n' || char === '\r')) {
+                        if (char === '\r' && next === '\n') i++;
+                        row.push(cell);
+                        parsedRows.push(row);
+                        row = [];
+                        cell = '';
+                        continue;
+                    }
+
+                    cell += char;
+                }
+
+                if (cell !== '' || row.length > 0) {
+                    row.push(cell);
+                    parsedRows.push(row);
+                }
+
+                return parsedRows;
+            }
+
+            function normalizeHeaderName(name) {
+                return String(name || '').toLowerCase().replace(/[\s_\-()（）]/g, '');
+            }
+
+            function findHeaderIndex(header, aliases) {
+                const normalizedAliases = aliases.map((alias) => normalizeHeaderName(alias));
+                return header.findIndex((cell) => normalizedAliases.includes(cell));
+            }
+
+            function isHeaderRow(header) {
+                const wordIndex = findHeaderIndex(header, ['word', '單字', '英文', 'vocab', 'term']);
+                const meaningIndex = findHeaderIndex(header, ['meaning', '意思', '中文', '翻譯', 'definition']);
+                return wordIndex >= 0 && meaningIndex >= 0;
+            }
+
+            function normalizeWordItem(word, meaning, options = null) {
+                const normalizedMeaning = String(meaning || '').trim();
+                const normalizedWord = String(word || '').trim();
+                const cleanOptions = normalizeOptions(options);
+
+                return {
+                    word: normalizedWord.toUpperCase(),
+                    meaning: normalizedMeaning,
+                    options: cleanOptions.length >= 3 ? cleanOptions : generateDummyOptions(normalizedMeaning)
+                };
+            }
+
+            function normalizeOptions(options) {
+                if (Array.isArray(options)) {
+                    return options.map((option) => String(option || '').trim()).filter(Boolean).slice(0, 3);
+                }
+
+                if (typeof options === 'string') {
+                    return options
+                        .split(/[、，,；;|]/)
+                        .map((option) => option.trim())
+                        .filter(Boolean)
+                        .slice(0, 3);
+                }
+
+                return [];
+            }
+
+            function deduplicate(items) {
+                const map = new Map();
+                items.forEach((item) => {
+                    if (item.word && !map.has(item.word)) {
+                        map.set(item.word, item);
+                    }
+                });
+                return Array.from(map.values());
             }
 
             function generateDummyOptions(correctMeaning) {
-                // 從正確答案生成相似但錯誤的選項
-                const baseOptions = [
-                    '其他意思A',
-                    '其他意思B',
-                    '其他意思C'
-                ];
-                
-                // 如果釋義包含頓號或逗號，可以拆分作為干擾項
-                if (correctMeaning.includes('、') || correctMeaning.includes('，')) {
-                    const parts = correctMeaning.split(/[、，]/);
-                    if (parts.length >= 2) {
-                        // 使用部分意思作為干擾項
-                        const shuffled = [...parts].sort(() => Math.random() - 0.5);
-                        return [
-                            shuffled[0] || baseOptions[0],
-                            shuffled[1] || baseOptions[1],
-                            shuffled[2] || baseOptions[2]
-                        ];
-                    }
+                const baseOptions = ['其他意思A', '其他意思B', '其他意思C'];
+                const parts = String(correctMeaning).split(/[、，,；;]/).map((part) => part.trim()).filter(Boolean);
+                if (parts.length >= 3) {
+                    return parts.slice(0, 3);
                 }
-                
+                if (parts.length === 2) {
+                    return [parts[0], parts[1], baseOptions[0]];
+                }
+                if (parts.length === 1 && parts[0]) {
+                    return [baseOptions[0], baseOptions[1], baseOptions[2]];
+                }
                 return baseOptions;
             }
 
             function displayPreview(words) {
                 previewArea.classList.remove('hidden');
                 previewContent.innerHTML = '';
-                
+
                 const summary = document.createElement('div');
                 summary.className = 'mb-4 p-3 bg-blue-100 rounded-lg';
                 summary.innerHTML = `<strong>總共找到 ${words.length} 個單字</strong>`;
                 previewContent.appendChild(summary);
-                
+
                 words.forEach((item, index) => {
                     const wordDiv = document.createElement('div');
                     wordDiv.className = 'p-3 bg-white rounded border border-gray-200 flex gap-4';
@@ -851,20 +619,11 @@
             }
 
             async function createNewCSVFile(filename, level, words) {
-                // Convert words to CSV format
                 const csvData = convertToCSV(words);
-                
-                // Send to server
                 const response = await fetch('/api/create-csv', {
                     method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({
-                        filename: filename,
-                        level: level,
-                        data: csvData
-                    })
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ filename, level, data: csvData })
                 });
 
                 if (!response.ok) {
@@ -875,13 +634,30 @@
             }
 
             function convertToCSV(words) {
-                // CSV format: word,meaning,option1,option2,option3,Ginger,River,Sigma
                 const headers = 'word,meaning,option1,option2,option3,Ginger,River,Sigma';
-                const rows = words.map(w => {
-                    return `${w.word},${w.meaning},${w.options[0]},${w.options[1]},${w.options[2]},0,0,0`;
+                const rows = words.map((wordItem) => {
+                    const safeCells = [
+                        wordItem.word,
+                        wordItem.meaning,
+                        wordItem.options[0],
+                        wordItem.options[1],
+                        wordItem.options[2],
+                        '0',
+                        '0',
+                        '0'
+                    ].map(escapeCSVCell);
+                    return safeCells.join(',');
                 });
-                
+
                 return headers + '\n' + rows.join('\n');
+            }
+
+            function escapeCSVCell(value) {
+                const text = String(value ?? '');
+                if (/[",\n]/.test(text)) {
+                    return `"${text.replace(/"/g, '""')}"`;
+                }
+                return text;
             }
 
             function hideAllMessages() {
@@ -890,24 +666,27 @@
                 errorArea.classList.add('hidden');
                 previewArea.classList.add('hidden');
                 debugArea.classList.add('hidden');
+                clickIndicator.classList.add('hidden');
             }
 
             function showError(message) {
                 statusArea.classList.add('hidden');
+                clickIndicator.classList.add('hidden');
                 errorArea.classList.remove('hidden');
                 errorText.textContent = message;
             }
-            
-        }); // End of DOMContentLoaded
-        
-        // Fallback: If DOM is already loaded, execute immediately
-        if (document.readyState === 'loading') {
-            console.log('DOM is still loading, waiting for DOMContentLoaded...');
-        } else {
-            console.log('DOM already loaded, executing immediately...');
-            // Trigger the event manually
-            document.dispatchEvent(new Event('DOMContentLoaded'));
-        }
+
+            function sanitizeFileBaseName(name) {
+                const normalized = String(name || '')
+                    .trim()
+                    .replace(/\s+/g, '_')
+                    .replace(/[\\/:*?"<>|]/g, '')
+                    .replace(/_+/g, '_')
+                    .replace(/^_+|_+$/g, '');
+
+                return normalized || 'new_words';
+            }
+        });
     </script>
 </body>
 </html>

@@ -45,6 +45,7 @@ Render.com 支援完整的 Python 後端功能，包括檔案寫入。
 - 單字管理（編輯、新增、刪除）
 - CSV 檔案切換
 - 自建資料（import.html）
+   - 匯入格式：`.json`、`.txt`、`.csv`（不支援 `.js`）
 - 學習進度保存
 - 所有後端 API
 

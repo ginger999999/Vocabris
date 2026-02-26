@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>Vocabris - 帳號單字分數統計</title>
+	<script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-950 text-gray-100 min-h-screen">
+	<div class="max-w-6xl mx-auto px-4 py-8">
+		<div class="flex flex-wrap items-center justify-between gap-3 mb-6">
+			<h1 class="text-3xl font-black text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-purple-500">單字分數統計</h1>
+			<button id="backBtn" class="px-4 py-2 bg-gray-800 hover:bg-gray-700 rounded-lg border border-gray-700">← 回到遊戲</button>
+		</div>
+
+		<div class="bg-gray-900 border border-gray-800 rounded-2xl p-4 mb-6 flex flex-wrap gap-3 items-center">
+			<label for="userSelect" class="text-sm text-gray-400">帳號 | User:</label>
+			<select id="userSelect" class="px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg">
+				<option value="Ginger">Ginger</option>
+				<option value="River">River</option>
+				<option value="Sigma">Sigma</option>
+			</select>
+			<div id="summary" class="text-sm text-gray-300"></div>
+		</div>
+
+		<div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+			<section class="bg-gray-900 border border-green-700/40 rounded-2xl p-4">
+				<h2 class="text-xl font-bold text-green-400 mb-3">正分單字（&gt; 0）</h2>
+				<div id="positiveContainer" class="space-y-4"></div>
+			</section>
+
+			<section class="bg-gray-900 border border-red-700/40 rounded-2xl p-4">
+				<h2 class="text-xl font-bold text-red-400 mb-3">負分單字（&lt; 0）</h2>
+				<div id="negativeContainer" class="space-y-4"></div>
+			</section>
+		</div>
+	</div>
+
+	<script>
+		const userSelect = document.getElementById('userSelect');
+		const summary = document.getElementById('summary');
+		const positiveContainer = document.getElementById('positiveContainer');
+		const negativeContainer = document.getElementById('negativeContainer');
+		const backBtn = document.getElementById('backBtn');
+
+		const urlUser = new URLSearchParams(window.location.search).get('user');
+		if (urlUser && ['Ginger', 'River', 'Sigma'].includes(urlUser)) {
+			userSelect.value = urlUser;
+		}
+
+		backBtn.addEventListener('click', () => {
+			if (window.parent && window.parent !== window) {
+				window.parent.postMessage({ type: 'STAT_CLOSE' }, '*');
+			} else {
+				window.location.href = '/index.html';
+			}
+		});
+
+		userSelect.addEventListener('change', () => {
+			const user = userSelect.value;
+			const url = new URL(window.location.href);
+			url.searchParams.set('user', user);
+			window.history.replaceState({}, '', url);
+			loadStats();
+		});
+
+		loadStats();
+
+		async function loadStats() {
+			try {
+				const ts = Date.now();
+				const response = await fetch(`/vocabulary.json?v=${ts}`);
+				if (!response.ok) {
+					throw new Error('無法載入 vocabulary.json');
+				}
+
+				const data = await response.json();
+				const user = userSelect.value;
+
+				const positiveByLevel = { elementary: [], intermediate: [], advanced: [] };
+				const negativeByLevel = { elementary: [], intermediate: [], advanced: [] };
+
+				['elementary', 'intermediate', 'advanced'].forEach((level) => {
+					const words = Array.isArray(data[level]) ? data[level] : [];
+					words.forEach((item) => {
+						const score = parseInt(item[user] || '0', 10) || 0;
+						const row = { word: item.word, meaning: item.meaning, score };
+						if (score > 0) positiveByLevel[level].push(row);
+						if (score < 0) negativeByLevel[level].push(row);
+					});
+
+					positiveByLevel[level].sort((a, b) => b.score - a.score);
+					negativeByLevel[level].sort((a, b) => a.score - b.score);
+				});
+
+				renderSection(positiveContainer, positiveByLevel, true);
+				renderSection(negativeContainer, negativeByLevel, false);
+
+				const positiveCount = Object.values(positiveByLevel).reduce((sum, arr) => sum + arr.length, 0);
+				const negativeCount = Object.values(negativeByLevel).reduce((sum, arr) => sum + arr.length, 0);
+				summary.textContent = `目前帳號：${user}｜正分 ${positiveCount} 筆｜負分 ${negativeCount} 筆`;
+			} catch (error) {
+				summary.textContent = '載入失敗: ' + error.message;
+				positiveContainer.innerHTML = '';
+				negativeContainer.innerHTML = '';
+			}
+		}
+
+		function renderSection(container, groupedData, isPositive) {
+			container.innerHTML = '';
+			const levelLabels = {
+				elementary: 'Elementary',
+				intermediate: 'Intermediate',
+				advanced: 'Advanced'
+			};
+
+			['elementary', 'intermediate', 'advanced'].forEach((level) => {
+				const list = groupedData[level];
+				const card = document.createElement('div');
+				card.className = 'bg-gray-800/60 border border-gray-700 rounded-xl p-3';
+
+				const title = document.createElement('div');
+				title.className = 'text-sm font-bold text-gray-300 mb-2';
+				title.textContent = `${levelLabels[level]} (${list.length})`;
+				card.appendChild(title);
+
+				if (list.length === 0) {
+					const empty = document.createElement('p');
+					empty.className = 'text-xs text-gray-500';
+					empty.textContent = '無資料';
+					card.appendChild(empty);
+				} else {
+					const table = document.createElement('table');
+					table.className = 'w-full text-sm';
+					table.innerHTML = `
+						<thead>
+							<tr class="text-left text-gray-400 border-b border-gray-700">
+								<th class="py-1">單字</th>
+								<th class="py-1">中文</th>
+								<th class="py-1 text-right">分數</th>
+							</tr>
+						</thead>
+					`;
+
+					const tbody = document.createElement('tbody');
+					list.forEach((row) => {
+						const tr = document.createElement('tr');
+						tr.className = 'border-b border-gray-800';
+						tr.innerHTML = `
+							<td class="py-1 font-bold">${escapeHtml(row.word)}</td>
+							<td class="py-1 text-gray-300">${escapeHtml(row.meaning || '')}</td>
+							<td class="py-1 text-right font-mono ${isPositive ? 'text-green-400' : 'text-red-400'}">${row.score}</td>
+						`;
+						tbody.appendChild(tr);
+					});
+
+					table.appendChild(tbody);
+					card.appendChild(table);
+				}
+
+				container.appendChild(card);
+			});
+		}
+
+		function escapeHtml(text) {
+			return String(text ?? '')
+				.replace(/&/g, '&amp;')
+				.replace(/</g, '&lt;')
+				.replace(/>/g, '&gt;')
+				.replace(/"/g, '&quot;')
+				.replace(/'/g, '&#39;');
+		}
+	</script>
+</body>
+</html>
