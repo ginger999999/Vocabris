@@ -368,6 +368,9 @@
 
           const [nextWordData, setNextWordData] = useState(null);
           const [inputLocked, setInputLocked] = useState(false);
+          const [progressFlash, setProgressFlash] = useState(null);
+          const [isStatModalOpen, setIsStatModalOpen] = useState(false);
+          const [statFrameUrl, setStatFrameUrl] = useState('/stat.html');
 
           // New State for Phase B Keyboard Navigation
           const [meaningCursorIndex, setMeaningCursorIndex] = useState(0);
@@ -407,7 +410,7 @@
               Object.keys(WORD_DATABASE).forEach(level => {
                 WORD_DATABASE[level].forEach(wordData => {
                   const progress = parseInt(wordData[currentUser] || '0');
-                  if (progress > 0 && progress < 3) {
+                  if (progress !== 0 && progress < 3) {
                     mastery[wordData.word] = progress;
                   } else if (progress >= 3) {
                     mastered.push(wordData.word);
@@ -441,14 +444,33 @@
             // 保存到 localStorage 作為備份
             localStorage.setItem(`vocabris_mastery_${currentUser}`, JSON.stringify(wordMastery));
             localStorage.setItem(`vocabris_mastered_${currentUser}`, JSON.stringify(masteredWords));
-            
-            // TODO: 可以在這裡添加 API 調用來保存回 CSV 檔案
-          }, [currentUser, wordMastery, masteredWords]);
+
+            // 嘗試同步到後端 CSV
+            const progressPayload = {};
+            (WORD_DATABASE[level] || []).forEach((wordData) => {
+              progressPayload[wordData.word] = parseInt(wordData[currentUser] || '0', 10) || 0;
+            });
+
+            fetch('/api/save-progress', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                user: currentUser,
+                level,
+                progress: progressPayload
+              })
+            }).catch((error) => {
+              console.log('Save progress API not available:', error.message);
+            });
+          }, [currentUser, wordMastery, masteredWords, level]);
           
           // 當進度變化時自動保存
           useEffect(() => {
             if (currentUser) {
-              saveProgress();
+              const timer = setTimeout(() => {
+                saveProgress();
+              }, 200);
+              return () => clearTimeout(timer);
             }
           }, [wordMastery, masteredWords, currentUser, saveProgress]);
           
@@ -470,11 +492,17 @@
 
           const speakWord = (text) => {
             if ('speechSynthesis' in window) {
+              window.speechSynthesis.cancel();
               const utterance = new SpeechSynthesisUtterance(text);
               utterance.lang = 'en-US';
               utterance.rate = 0.9;
               window.speechSynthesis.speak(utterance);
             }
+          };
+
+          const replayCurrentWordAudio = () => {
+            if (gameState !== 'PLAYING' || !currentWord?.data?.word) return;
+            speakWord(currentWord.data.word);
           };
 
           const generateWordObj = (lvl) => {
@@ -641,8 +669,82 @@
 
           // --- Interactions ---
 
+          const adjustWordProgress = (word, delta) => {
+            const activeLevelWords = WORD_DATABASE[level] || [];
+            const targetWord = activeLevelWords.find(item => item.word === word);
+            const currentProgressFromDB = targetWord && currentUser
+              ? parseInt(targetWord[currentUser] || '0', 10) || 0
+              : null;
+
+            const currentProgress = currentProgressFromDB !== null
+              ? currentProgressFromDB
+              : (masteredWords.includes(word) ? 3 : (wordMastery[word] || 0));
+            const nextProgress = currentProgress + delta;
+
+            setProgressFlash({
+              word,
+              score: nextProgress,
+              delta,
+              at: Date.now()
+            });
+
+            setTimeout(() => {
+              setProgressFlash((prev) => (prev && prev.word === word ? null : prev));
+            }, 1200);
+
+            if (targetWord && currentUser) {
+              targetWord[currentUser] = String(nextProgress);
+            }
+
+            if (currentUser && level && word) {
+              fetch('/api/save-progress', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                keepalive: true,
+                body: JSON.stringify({
+                  user: currentUser,
+                  level,
+                  progress: {
+                    [word]: nextProgress
+                  }
+                })
+              }).catch((error) => {
+                console.log('Immediate progress sync failed:', error.message);
+              });
+            }
+
+            setMasteredWords(prev => {
+              if (nextProgress >= 3) {
+                return prev.includes(word) ? prev : [...prev, word];
+              }
+              return prev.filter(w => w !== word);
+            });
+
+            setWordMastery(prev => {
+              const updated = { ...prev };
+              if (nextProgress >= 3 || nextProgress === 0) {
+                delete updated[word];
+              } else {
+                updated[word] = nextProgress;
+              }
+              return updated;
+            });
+          };
+
+          const openStatModal = () => {
+            const userParam = encodeURIComponent(currentUser || 'Ginger');
+            setStatFrameUrl(`/stat.html?user=${userParam}&v=${Date.now()}`);
+            setIsStatModalOpen(true);
+          };
+
           const handleKeyDown = (e) => {
             if (gameState !== 'PLAYING' || !currentWord || inputLocked) return;
+
+            if (e.key === '0') {
+              e.preventDefault();
+              replayCurrentWordAudio();
+              return;
+            }
 
             // 1. Movement Controls (Phase A only)
             if (currentWord.phase === 'A') {
@@ -660,6 +762,12 @@
                 e.preventDefault();
                 // Soft drop: move down one step immediately
                 gameTick(); 
+                return;
+              }
+              if (e.key === ' ' || e.code === 'Space' || e.key === 'Spacebar') {
+                e.preventDefault();
+                // Hard drop: move directly to the bottom and solidify
+                dropToBottom();
                 return;
               }
             }
@@ -700,6 +808,7 @@
                 } else {
                   // Wrong Input
                   setInputLocked(true); // Red flash / freeze
+                  adjustWordProgress(currentWord.data.word, -1);
                   // Optional: Play error sound
                 }
               }
@@ -734,48 +843,34 @@
             }
           };
 
+          useEffect(() => {
+            if (gameState !== 'PLAYING') return;
+
+            const handleGlobalKeyDown = (event) => {
+              const activeTag = document.activeElement?.tagName;
+              if (activeTag === 'INPUT' || activeTag === 'TEXTAREA' || document.activeElement?.isContentEditable) {
+                return;
+              }
+              handleKeyDown(event);
+            };
+
+            window.addEventListener('keydown', handleGlobalKeyDown);
+            return () => window.removeEventListener('keydown', handleGlobalKeyDown);
+          }, [gameState, currentWord, inputLocked, meaningCursorIndex]);
+
           const handlePhaseBAnswer = (selectedMeaning) => {
             if (selectedMeaning === currentWord.data.meaning) {
               // Success!
               setScore(prev => prev + (currentWord.letters.length * 100));
-              
-              // Update word mastery tracking
               const word = currentWord.data.word;
-              const currentCount = wordMastery[word] || 0;
-              const newCount = currentCount + 1;
-              
-              if (newCount >= 3) {
-                // Mastered! Add to mastered list
-                setMasteredWords(prev => {
-                  if (!prev.includes(word)) {
-                    return [...prev, word];
-                  }
-                  return prev;
-                });
-                // Remove from mastery tracking
-                setWordMastery(prev => {
-                  const updated = { ...prev };
-                  delete updated[word];
-                  return updated;
-                });
-              } else {
-                // Update mastery count
-                setWordMastery(prev => ({
-                  ...prev,
-                  [word]: newCount
-                }));
-              }
+              adjustWordProgress(word, +1);
               
               // Word disappears (Cleared) instead of stacking
               spawnNextWord();
             } else {
-              // Failed Phase B -> Reset mastery count for this word
+              // Failed Phase B -> decrement by 1
               const word = currentWord.data.word;
-              setWordMastery(prev => {
-                const updated = { ...prev };
-                delete updated[word];
-                return updated;
-              });
+              adjustWordProgress(word, -1);
               
               // Drop to bottom immediately
               dropToBottom();
@@ -821,7 +916,7 @@
             const displayGrid = grid.map(row => [...row]);
 
             // Overlay active word
-            if (currentWord && gameState === 'PLAYING') {
+            if (currentWord && (gameState === 'PLAYING' || gameState === 'GAMEOVER')) {
               const { x, y, letters, phase } = currentWord;
               
               // (計算遊標位置的索引)
@@ -1077,27 +1172,68 @@
             const [currentCsvConfig, setCurrentCsvConfig] = useState({});
             const [isSwitching, setIsSwitching] = useState(false);
             const [editingWordName, setEditingWordName] = useState(null); // Track by word name instead of object
+            const [isServerMode, setIsServerMode] = useState(false); // Check if server APIs are available
+            const [isImportModalOpen, setIsImportModalOpen] = useState(false);
+            const [importFrameUrl, setImportFrameUrl] = useState('/import.html');
             
             // Function to reload CSV list
-            const reloadCsvList = () => {
-              fetch('/api/list-csv')
-                .then(res => res.json())
-                .then(data => {
+            const reloadCsvList = async () => {
+              try {
+                const response = await fetch('/api/list-csv');
+                if (response.ok) {
+                  const data = await response.json();
                   setAvailableCsvFiles(data.files || []);
-                })
-                .catch(err => console.error('Failed to load CSV files:', err));
+                  setIsServerMode(true);
+                } else {
+                  throw new Error('API not available');
+                }
+              } catch (err) {
+                console.log('Server API not available, using static mode');
+                // Fallback: use static list of CSV files
+                setAvailableCsvFiles([
+                  'elementary_words.csv',
+                  'intermediate_words.csv', 
+                  'advanced_words.csv',
+                  'v1200.csv'
+                ]);
+                setIsServerMode(false);
+              }
             };
             
             // Load available CSV files and current config
             useEffect(() => {
               reloadCsvList();
               
+              // Try to load config from API first, fallback to static file
               fetch('/api/get-csv-config')
-                .then(res => res.json())
+                .then(res => {
+                  if (res.ok) {
+                    setIsServerMode(true);
+                    return res.json();
+                  } else {
+                    throw new Error('API not available');
+                  }
+                })
                 .then(data => {
                   setCurrentCsvConfig(data);
                 })
-                .catch(err => console.error('Failed to load CSV config:', err));
+                .catch(err => {
+                  console.log('Server API not available, loading static config');
+                  // Fallback: load csv_config.json as static file
+                  fetch('/csv_config.json')
+                    .then(res => res.json())
+                    .then(data => setCurrentCsvConfig(data))
+                    .catch(err2 => {
+                      console.error('Failed to load config:', err2);
+                      // Use default config
+                      setCurrentCsvConfig({
+                        'elementary': 'elementary_words.csv',
+                        'intermediate': 'intermediate_words.csv',
+                        'advanced': 'advanced_words.csv'
+                      });
+                    });
+                  setIsServerMode(false);
+                });
             }, []);
             
             // Listen for messages from import.html
@@ -1107,8 +1243,17 @@
                   console.log('New CSV created:', event.data.filename);
                   // Reload CSV list
                   reloadCsvList();
+                  setIsImportModalOpen(false);
                   // Show notification
                   alert(`新檔案已建立：${event.data.filename}\n請在下拉選單中選擇並點擊"應用"`);
+                }
+
+                if (event.data && event.data.type === 'IMPORT_CLOSE') {
+                  setIsImportModalOpen(false);
+                }
+
+                if (event.data && event.data.type === 'STAT_CLOSE') {
+                  setIsStatModalOpen(false);
                 }
               };
               
@@ -1160,6 +1305,11 @@
               } finally {
                 setIsSwitching(false);
               }
+            };
+
+            const openImportModal = () => {
+              setImportFrameUrl(`/import.html?v=${Date.now()}`);
+              setIsImportModalOpen(true);
             };
             
             const filteredWords = currentLevelWords.filter(w => 
@@ -1213,27 +1363,34 @@
               }
               
               // 儲存到 CSV 檔案
-              try {
-                const response = await fetch('/api/update-words', {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({
-                    level: editingLevel,
-                    words: WORD_DATABASE[editingLevel]
-                  })
-                });
-                
-                const result = await response.json();
-                if (result.success) {
-                  setEditingWordName(null);
-                  setIsAddingWord(false);
-                  alert('儲存成功！CSV 檔案已更新 | Saved successfully! CSV file updated');
-                } else {
-                  alert('儲存失敗: ' + result.error);
+              if (isServerMode) {
+                try {
+                  const response = await fetch('/api/update-words', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                      level: editingLevel,
+                      words: WORD_DATABASE[editingLevel]
+                    })
+                  });
+                  
+                  const result = await response.json();
+                  if (result.success) {
+                    setEditingWordName(null);
+                    setIsAddingWord(false);
+                    alert('儲存成功！CSV 檔案已更新 | Saved successfully! CSV file updated');
+                  } else {
+                    alert('儲存失敗: ' + result.error);
+                  }
+                } catch (error) {
+                  console.error('Error saving to CSV:', error);
+                  alert('儲存到 CSV 失敗 | Failed to save to CSV: ' + error.message);
                 }
-              } catch (error) {
-                console.error('Error saving to CSV:', error);
-                alert('儲存到 CSV 失敗 | Failed to save to CSV: ' + error.message);
+              } else {
+                // Static mode - only update in memory
+                setEditingWordName(null);
+                setIsAddingWord(false);
+                alert('⚠️ 靜態部署模式\n修改已套用到當前頁面，但無法儲存到 CSV 檔案\n重新整理後將恢復原始資料\n\n如需永久修改，請在本地環境執行 server.py\n\nStatic deployment mode\nChanges applied to current page only\nWill be reset on refresh');
               }
             };
             
@@ -1339,7 +1496,7 @@
                           {isSwitching ? '處理中...' : '應用'}
                         </button>
                         <button
-                          onClick={() => window.open('/import.html', '_blank')}
+                          onClick={openImportModal}
                           className="px-4 py-2 bg-purple-600 hover:bg-purple-700 rounded-lg text-sm font-bold transition-all whitespace-nowrap"
                           title="開啟匯入工具建立新的單字資料檔案"
                         >
@@ -1481,27 +1638,59 @@
                     )}
                   </div>
                 </div>
+
+                {isImportModalOpen && (
+                  <div className="absolute inset-0 z-[70] bg-black/70 flex items-center justify-center p-4">
+                    <div className="w-full max-w-6xl h-[88vh] bg-gray-900 border border-gray-700 rounded-2xl shadow-2xl overflow-hidden flex flex-col">
+                      <div className="flex items-center justify-between px-4 py-3 border-b border-gray-700 bg-gray-800">
+                        <h3 className="text-lg font-bold text-white">📁 自建資料 | Import Vocabulary</h3>
+                        <button
+                          onClick={() => setIsImportModalOpen(false)}
+                          className="px-3 py-1.5 bg-gray-700 hover:bg-gray-600 rounded-lg text-sm font-bold"
+                        >
+                          關閉
+                        </button>
+                      </div>
+                      <iframe
+                        key={importFrameUrl}
+                        src={importFrameUrl}
+                        title="Import Vocabulary"
+                        className="flex-1 w-full bg-white"
+                      />
+                    </div>
+                  </div>
+                )}
               </div>
             );
           };
 
           const GameOverScreen = () => (
-            <div className="absolute inset-0 z-50 bg-black/90 text-white flex flex-col items-center justify-center p-6 text-center animate-in fade-in duration-500">
-              {Skull && <Skull size={64} className="text-red-500 mb-4" />}
-              <h2 className="text-4xl font-bold mb-2">GAME OVER (遊戲結束)</h2>
-              <p className="text-gray-400 mb-8">The stack reached the top! (方塊堆到頂了!)</p>
-              
-              <div className="bg-gray-800 rounded-xl p-6 mb-8 w-64 border border-gray-700">
-                <p className="text-sm text-gray-500 uppercase tracking-wider mb-1">Final Score (最終分數)</p>
-                <p className="text-5xl font-mono text-yellow-400">{score}</p>
-              </div>
+            <div className="absolute inset-0 z-50 bg-black/45 text-white flex items-center justify-end p-4 md:p-8 animate-in fade-in duration-500">
+              <div className="w-full max-w-md md:mr-8 text-center bg-black/55 border border-gray-700 rounded-2xl p-6 backdrop-blur-sm">
+                {Skull && <Skull size={64} className="text-red-500 mb-4 mx-auto" />}
+                <h2 className="text-4xl font-bold mb-2">GAME OVER (遊戲結束)</h2>
+                <p className="text-gray-300 mb-8">The stack reached the top! (方塊堆到頂了!)</p>
+                
+                <div className="bg-gray-800 rounded-xl p-6 mb-8 w-64 border border-gray-700 mx-auto">
+                  <p className="text-sm text-gray-500 uppercase tracking-wider mb-1">Final Score (最終分數)</p>
+                  <p className="text-5xl font-mono text-yellow-400">{score}</p>
+                </div>
 
-              <button 
-                onClick={() => setGameState('MENU')}
-                className="px-8 py-3 bg-white text-black font-bold rounded-full hover:bg-gray-200 transition-colors flex items-center gap-2"
-              >
-                {RefreshCw && <RefreshCw size={20} />} Play Again (再玩一次)
-              </button>
+                <div className="flex gap-3 flex-wrap items-center justify-center">
+                  <button 
+                    onClick={() => setGameState('MENU')}
+                    className="px-8 py-3 bg-white text-black font-bold rounded-full hover:bg-gray-200 transition-colors flex items-center gap-2"
+                  >
+                    {RefreshCw && <RefreshCw size={20} />} Play Again (再玩一次)
+                  </button>
+                  <button
+                    onClick={openStatModal}
+                    className="px-8 py-3 bg-blue-600 text-white font-bold rounded-full hover:bg-blue-700 transition-colors"
+                  >
+                    查看統計
+                  </button>
+                </div>
+              </div>
             </div>
           );
 
@@ -1555,13 +1744,34 @@
             <div 
               className="game-container min-h-screen bg-gray-950 text-gray-100 font-sans overflow-hidden select-none flex flex-col items-center justify-center"
               tabIndex={0}
-              onKeyDown={handleKeyDown}
               ref={gameContainerRef}
             >
               {gameState === 'USER_SELECT' && <UserSelectScreen />}
               {gameState === 'MENU' && <MenuScreen />}
               {gameState === 'GAMEOVER' && <GameOverScreen />}
               {gameState === 'VOCAB_MANAGER' && <VocabularyManagerScreen />}
+
+              {isStatModalOpen && (
+                <div className="absolute inset-0 z-[80] bg-black/80 flex items-center justify-center p-4">
+                  <div className="w-full max-w-6xl h-[88vh] bg-gray-900 border border-gray-700 rounded-2xl shadow-2xl overflow-hidden flex flex-col">
+                    <div className="flex items-center justify-between px-4 py-3 border-b border-gray-700 bg-gray-800">
+                      <h3 className="text-lg font-bold text-white">📊 統計畫面 | Statistics</h3>
+                      <button
+                        onClick={() => setIsStatModalOpen(false)}
+                        className="px-3 py-1.5 bg-gray-700 hover:bg-gray-600 rounded-lg text-sm font-bold"
+                      >
+                        關閉
+                      </button>
+                    </div>
+                    <iframe
+                      key={statFrameUrl}
+                      src={statFrameUrl}
+                      title="Statistics"
+                      className="flex-1 w-full bg-white"
+                    />
+                  </div>
+                </div>
+              )}
 
               {/* Main Game Layout - Single Column */}
               <div className="w-full max-w-4xl min-h-screen flex flex-col gap-4 p-4">
@@ -1595,6 +1805,13 @@
                       <button onClick={() => setGameState('MENU')} className="text-xs border border-gray-600 px-3 py-2 rounded hover:bg-gray-800 ml-4">EXIT</button>
                     )}
                   </div>
+                  {progressFlash && gameState === 'PLAYING' && (
+                    <div className="mt-3 text-center">
+                      <span className={`inline-block px-3 py-1 rounded-full text-sm font-bold ${progressFlash.delta >= 0 ? 'bg-green-900/60 text-green-300 border border-green-700' : 'bg-red-900/60 text-red-300 border border-red-700'}`}>
+                        {progressFlash.word}: {progressFlash.delta >= 0 ? '+' : ''}{progressFlash.delta} → {progressFlash.score}
+                      </span>
+                    </div>
+                  )}
                 </div>
 
                 {/* Game Board */}
@@ -1608,7 +1825,13 @@
                   {/* Phase A Helper Text */}
                   {currentWord?.phase === 'A' && (
                     <div className="absolute top-2 right-2 z-10 p-2 bg-blue-900/80 border border-blue-500/30 rounded-lg backdrop-blur-sm">
-                      <p className="text-blue-300 text-xs">Type missing letters! (輸入缺字母!)</p>
+                      <button
+                        onClick={replayCurrentWordAudio}
+                        className="text-blue-300 text-xs hover:text-blue-200 underline underline-offset-2"
+                        title="點擊重播英文發音 | Click to replay pronunciation"
+                      >
+                        Type missing letters! (輸入缺字母，點擊或按 0 重播發音)
+                      </button>
                     </div>
                   )}
                   
@@ -1660,9 +1883,26 @@
     <script>
       if ('serviceWorker' in navigator) {
         window.addEventListener('load', () => {
+          const isLocalDevHost = ['localhost', '127.0.0.1'].includes(window.location.hostname);
+
+          if (isLocalDevHost) {
+            navigator.serviceWorker.getRegistrations()
+              .then((registrations) => Promise.all(registrations.map((registration) => registration.unregister())))
+              .then(() => caches.keys())
+              .then((cacheNames) => Promise.all(cacheNames.map((cacheName) => caches.delete(cacheName))))
+              .then(() => {
+                console.log('🧹 Local dev mode: Service Worker unregistered and caches cleared');
+              })
+              .catch((error) => {
+                console.log('⚠️ Local cache cleanup failed:', error);
+              });
+            return;
+          }
+
           navigator.serviceWorker.register('/service-worker.js')
             .then((registration) => {
               console.log('✅ Service Worker 註冊成功:', registration.scope);
+              registration.update();
             })
             .catch((error) => {
               console.log('❌ Service Worker 註冊失敗:', error);

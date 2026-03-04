@@ -1,36 +1,180 @@
 {
   "elementary": [
     {
-      "word": "HELLO",
-      "meaning": "你好",
+      "word": "FORK",
+      "meaning": "叉子",
       "options": [
-        "其他意思A",
-        "其他意思B",
-        "其他意思C"
+        "剪刀",
+        "湯匙",
+        "甜點"
       ],
       "Ginger": "0",
       "River": "0",
       "Sigma": "0"
     },
     {
-      "word": "WORLD",
-      "meaning": "世界",
+      "word": "SPOON",
+      "meaning": "湯匙",
       "options": [
-        "其他意思A",
-        "其他意思B",
-        "其他意思C"
+        "n.",
+        "湯",
+        "刀子"
+      ],
+      "Ginger": "2",
+      "River": "0",
+      "Sigma": "0"
+    },
+    {
+      "word": "KNIFE",
+      "meaning": "刀子",
+      "options": [
+        "n.",
+        "叉子",
+        "湯匙"
       ],
       "Ginger": "0",
       "River": "0",
       "Sigma": "0"
     },
     {
-      "word": "TEST",
-      "meaning": "測試",
+      "word": "SOUP",
+      "meaning": "湯",
       "options": [
-        "其他意思A",
-        "其他意思B",
-        "其他意思C"
+        "n.",
+        "肉",
+        "餓的"
+      ],
+      "Ginger": "3",
+      "River": "0",
+      "Sigma": "0"
+    },
+    {
+      "word": "MEAT",
+      "meaning": "肉",
+      "options": [
+        "n.",
+        "餓的",
+        "甜點"
+      ],
+      "Ginger": "0",
+      "River": "0",
+      "Sigma": "0"
+    },
+    {
+      "word": "SWEETS",
+      "meaning": "甜點",
+      "options": [
+        "n.",
+        "肉",
+        "湯"
+      ],
+      "Ginger": "0",
+      "River": "0",
+      "Sigma": "0"
+    },
+    {
+      "word": "HUNGRY",
+      "meaning": "餓的",
+      "options": [
+        "adj.",
+        "檢查",
+        "愉快的"
+      ],
+      "Ginger": "0",
+      "River": "0",
+      "Sigma": "0"
+    },
+    {
+      "word": "LUNCH",
+      "meaning": "午餐",
+      "options": [
+        "n.",
+        "早餐",
+        "援助"
+      ],
+      "Ginger": "0",
+      "River": "0",
+      "Sigma": "0"
+    },
+    {
+      "word": "TASTE",
+      "meaning": "嚐起來",
+      "options": [
+        "adj.",
+        "角度",
+        "好看的"
+      ],
+      "Ginger": "0",
+      "River": "0",
+      "Sigma": "0"
+    },
+    {
+      "word": "SOUND",
+      "meaning": "聽起來",
+      "options": [
+        "v.",
+        "漂亮的",
+        "感覺起來"
+      ],
+      "Ginger": "-1",
+      "River": "0",
+      "Sigma": "0"
+    },
+    {
+      "word": "LOOK",
+      "meaning": "看起來",
+      "options": [
+        "v.",
+        "協助",
+        "聞起來"
+      ],
+      "Ginger": "0",
+      "River": "0",
+      "Sigma": "0"
+    },
+    {
+      "word": "SMELL",
+      "meaning": "聞起來",
+      "options": [
+        "v.",
+        "愉悅的",
+        "角度"
+      ],
+      "Ginger": "0",
+      "River": "0",
+      "Sigma": "0"
+    },
+    {
+      "word": "FEEL",
+      "meaning": "感覺起來",
+      "options": [
+        "v.",
+        "歡樂的",
+        "核心的"
+      ],
+      "Ginger": "0",
+      "River": "0",
+      "Sigma": "0"
+    },
+    {
+      "word": "DINNER",
+      "meaning": "晚餐",
+      "options": [
+        "n.",
+        "考察",
+        "早餐"
+      ],
+      "Ginger": "1",
+      "River": "0",
+      "Sigma": "0"
+    },
+    {
+      "word": "BREAKFAST",
+      "meaning": "早餐",
+      "options": [
+        "n.",
+        "午餐",
+        "援助"
       ],
       "Ginger": "0",
       "River": "0",
