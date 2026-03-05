@@ -1381,7 +1381,31 @@
               const confirmText = `確定要重置 ${currentUser} 在 ${targetCsv} 的進度嗎？\n\n只會重置目前帳號，其他帳號不變。`;
               if (!window.confirm(confirmText)) return;
 
+              const levelWords = WORD_DATABASE[editingLevel] || [];
+              const zeroPayload = {};
+              levelWords.forEach((wordData) => {
+                zeroPayload[wordData.word] = 0;
+                if (wordData && currentUser) {
+                  wordData[currentUser] = '0';
+                }
+              });
+
+              const clearLocalProgressForLevel = () => {
+                const levelWordSet = new Set(levelWords.map((w) => w.word));
+                setWordMastery((prev) => {
+                  const next = { ...prev };
+                  levelWordSet.forEach((word) => delete next[word]);
+                  return next;
+                });
+                setMasteredWords((prev) => prev.filter((word) => !levelWordSet.has(word)));
+              };
+
               try {
+                let primaryStatus = null;
+                let primaryPreview = '';
+                let fallbackStatus = null;
+                let fallbackPreview = '';
+
                 const response = await fetch('/api/reset-level-progress', {
                   method: 'POST',
                   headers: { 'Content-Type': 'application/json' },
@@ -1391,13 +1415,44 @@
                     user: currentUser
                   })
                 });
+                primaryStatus = response.status;
 
-                const result = await response.json();
-                if (!response.ok || !result.success) {
-                  throw new Error(result.error || 'Unknown error');
+                const raw = await response.text();
+                primaryPreview = (raw || '').slice(0, 120).replace(/\s+/g, ' ');
+                let result = null;
+                try {
+                  result = raw ? JSON.parse(raw) : null;
+                } catch {
+                  result = null;
                 }
 
-                alert(`已重置 ${result.csv_file} 的進度。\nProgress reset completed.`);
+                if (response.ok && result && result.success) {
+                  clearLocalProgressForLevel();
+                  alert(`已重置 ${result.csv_file} 的進度。\nProgress reset completed.`);
+                  return;
+                }
+
+                const fallbackResponse = await fetch('/api/save-progress', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    user: currentUser,
+                    level: editingLevel,
+                    progress: zeroPayload
+                  })
+                });
+                fallbackStatus = fallbackResponse.status;
+                const fallbackRaw = await fallbackResponse.text();
+                fallbackPreview = (fallbackRaw || '').slice(0, 120).replace(/\s+/g, ' ');
+
+                if (!fallbackResponse.ok) {
+                  throw new Error(
+                    `${(result && result.error) || 'Reset API unavailable and fallback failed'} (reset-status: ${primaryStatus}, fallback-status: ${fallbackStatus}, reset-body: ${primaryPreview || 'empty'}, fallback-body: ${fallbackPreview || 'empty'})`
+                  );
+                }
+
+                clearLocalProgressForLevel();
+                alert(`已重置 ${targetCsv} 中 ${currentUser} 的進度。\n(使用相容模式完成)`);
               } catch (error) {
                 alert('重置失敗: ' + error.message);
               }
