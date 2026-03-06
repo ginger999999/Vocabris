@@ -87,7 +87,7 @@
                     👁️ 預覽
                 </button>
             </div>
-            
+
             <!-- Debug Click Indicator -->
             <div id="clickIndicator" class="hidden bg-yellow-100 border-2 border-yellow-500 p-4 rounded-lg">
                 <p class="text-yellow-800 font-bold">✓ 按鈕已點擊，正在處理...</p>
@@ -176,7 +176,6 @@
             });
 
             csvFileName.addEventListener('input', updateButtons);
-
             previewBtn.addEventListener('click', async () => {
                 if (!isReady()) {
                     showError('請先輸入 CSV 檔案名稱並選擇檔案');

@@ -320,6 +320,86 @@ class VocabrisHandler(SimpleHTTPRequestHandler):
                 self.send_response(500)
                 self.end_headers()
                 self.wfile.write(json.dumps({"error": str(e)}).encode())
+
+        elif self.path == '/api/reset-level-progress':
+            # 只重置指定級別所對應 CSV 的進度欄位
+            content_length = int(self.headers['Content-Length'])
+            post_data = self.rfile.read(content_length)
+            data = json.loads(post_data.decode('utf-8'))
+
+            level = data.get('level')
+            source = data.get('source')
+            user = data.get('user')
+            if not level:
+                self.send_response(400)
+                self.end_headers()
+                self.wfile.write(b'{"error": "Missing level"}')
+                return
+
+            try:
+                config_file = 'csv_config.json'
+                if os.path.exists(config_file):
+                    with open(config_file, 'r', encoding='utf-8') as f:
+                        config = json.load(f)
+                else:
+                    config = {
+                        'elementary': 'elementary_words.csv',
+                        'intermediate': 'intermediate_words.csv',
+                        'advanced': 'advanced_words.csv'
+                    }
+
+                csv_file = source if source else config.get(level, f'{level}_words.csv')
+                if not os.path.exists(csv_file):
+                    self.send_response(404)
+                    self.end_headers()
+                    self.wfile.write(b'{"error": "CSV file not found"}')
+                    return
+
+                with open(csv_file, 'r', encoding='utf-8') as f:
+                    reader = csv.DictReader(f)
+                    fieldnames = reader.fieldnames or []
+                    base_fields = ['word', 'meaning', 'option1', 'option2', 'option3']
+                    progress_fields = [name for name in fieldnames if name not in base_fields]
+
+                    if user:
+                        if user not in progress_fields:
+                            self.send_response(400)
+                            self.end_headers()
+                            self.wfile.write(b'{"error": "Invalid user column"}')
+                            return
+                        target_fields = [user]
+                    else:
+                        target_fields = progress_fields
+
+                    rows = []
+
+                    for row in reader:
+                        for progress_field in target_fields:
+                            row[progress_field] = '0'
+                        rows.append(row)
+
+                with open(csv_file, 'w', encoding='utf-8', newline='') as f:
+                    writer = csv.DictWriter(f, fieldnames=fieldnames)
+                    writer.writeheader()
+                    writer.writerows(rows)
+
+                os.system('python3 generate_vocabulary.py > /dev/null 2>&1')
+
+                self.send_response(200)
+                self.send_header('Content-type', 'application/json')
+                self.send_header('Access-Control-Allow-Origin', '*')
+                self.end_headers()
+                self.wfile.write(json.dumps({
+                    "success": True,
+                    "level": level,
+                    "csv_file": csv_file,
+                    "reset_columns": target_fields
+                }).encode())
+
+            except Exception as e:
+                self.send_response(500)
+                self.end_headers()
+                self.wfile.write(json.dumps({"error": str(e)}).encode())
         
         else:
             self.send_response(404)

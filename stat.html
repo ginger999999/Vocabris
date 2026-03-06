@@ -23,6 +23,15 @@
 			<div id="summary" class="text-sm text-gray-300"></div>
 		</div>
 
+		<section class="bg-gray-900 border border-blue-700/40 rounded-2xl p-4 mb-6">
+			<div class="flex items-center justify-between gap-3 mb-2">
+				<h2 class="text-xl font-bold text-blue-400">本局變動摘要</h2>
+				<button id="clearSessionBtn" class="px-3 py-1.5 bg-gray-800 hover:bg-gray-700 rounded-lg border border-gray-700 text-sm">清除本局摘要</button>
+			</div>
+			<div id="sessionSummary" class="text-sm text-gray-300 mb-3">無本局資料</div>
+			<div id="sessionContainer" class="space-y-2"></div>
+		</section>
+
 		<div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
 			<section class="bg-gray-900 border border-green-700/40 rounded-2xl p-4">
 				<h2 class="text-xl font-bold text-green-400 mb-3">正分單字（&gt; 0）</h2>
@@ -41,6 +50,9 @@
 		const summary = document.getElementById('summary');
 		const positiveContainer = document.getElementById('positiveContainer');
 		const negativeContainer = document.getElementById('negativeContainer');
+		const sessionSummary = document.getElementById('sessionSummary');
+		const sessionContainer = document.getElementById('sessionContainer');
+		const clearSessionBtn = document.getElementById('clearSessionBtn');
 		const backBtn = document.getElementById('backBtn');
 
 		const urlUser = new URLSearchParams(window.location.search).get('user');
@@ -64,6 +76,12 @@
 			loadStats();
 		});
 
+		clearSessionBtn.addEventListener('click', () => {
+			const user = userSelect.value;
+			clearSessionDelta(user);
+			loadStats();
+		});
+
 		loadStats();
 
 		async function loadStats() {
@@ -76,6 +94,7 @@
 
 				const data = await response.json();
 				const user = userSelect.value;
+				const sessionDelta = loadSessionDelta(user);
 
 				const positiveByLevel = { elementary: [], intermediate: [], advanced: [] };
 				const negativeByLevel = { elementary: [], intermediate: [], advanced: [] };
@@ -95,6 +114,7 @@
 
 				renderSection(positiveContainer, positiveByLevel, true);
 				renderSection(negativeContainer, negativeByLevel, false);
+				renderSessionDelta(sessionDelta);
 
 				const positiveCount = Object.values(positiveByLevel).reduce((sum, arr) => sum + arr.length, 0);
 				const negativeCount = Object.values(negativeByLevel).reduce((sum, arr) => sum + arr.length, 0);
@@ -103,7 +123,85 @@
 				summary.textContent = '載入失敗: ' + error.message;
 				positiveContainer.innerHTML = '';
 				negativeContainer.innerHTML = '';
+				sessionSummary.textContent = '本局資料載入失敗';
+				sessionContainer.innerHTML = '';
 			}
+		}
+
+		function loadSessionDelta(user) {
+			try {
+				const raw = localStorage.getItem(`vocabris_session_delta_${user}`);
+				const parsed = raw ? JSON.parse(raw) : {};
+				return parsed && typeof parsed === 'object' ? parsed : {};
+			} catch {
+				return {};
+			}
+		}
+
+		function clearSessionDelta(user) {
+			try {
+				localStorage.removeItem(`vocabris_session_delta_${user}`);
+			} catch {
+				// ignore storage errors
+			}
+		}
+
+		function renderSessionDelta(deltaMap) {
+			sessionContainer.innerHTML = '';
+			const list = Object.entries(deltaMap || {})
+				.map(([word, info]) => ({
+					word,
+					delta: parseInt(info?.delta || '0', 10) || 0,
+					plus: parseInt(info?.plus || '0', 10) || (parseInt(info?.delta || '0', 10) > 0 ? parseInt(info?.delta || '0', 10) : 0),
+					minus: parseInt(info?.minus || '0', 10) || (parseInt(info?.delta || '0', 10) < 0 ? Math.abs(parseInt(info?.delta || '0', 10)) : 0),
+					level: info?.level || '',
+					meaning: info?.meaning || ''
+				}))
+				.filter((item) => item.plus > 0 || item.minus > 0 || item.delta !== 0)
+				.sort((a, b) => (b.plus + b.minus) - (a.plus + a.minus));
+
+			if (list.length === 0) {
+				sessionSummary.textContent = '本局目前沒有分數變動';
+				return;
+			}
+
+			const plusCount = list.filter((item) => item.plus > 0).length;
+			const minusCount = list.filter((item) => item.minus > 0).length;
+			sessionSummary.textContent = `本局變動共 ${list.length} 筆｜有加分 ${plusCount}｜有扣分 ${minusCount}`;
+
+			const table = document.createElement('table');
+			table.className = 'w-full text-sm';
+			table.innerHTML = `
+				<thead>
+					<tr class="text-left text-gray-400 border-b border-gray-700">
+						<th class="py-1">單字</th>
+						<th class="py-1">中文</th>
+						<th class="py-1">Level</th>
+						<th class="py-1 text-right">本局 +</th>
+						<th class="py-1 text-right">本局 -</th>
+						<th class="py-1 text-right">淨值 Δ</th>
+					</tr>
+				</thead>
+			`;
+
+			const tbody = document.createElement('tbody');
+			list.forEach((row) => {
+				const tr = document.createElement('tr');
+				tr.className = 'border-b border-gray-800';
+				const netSign = row.delta > 0 ? '+' : '';
+				tr.innerHTML = `
+					<td class="py-1 font-bold">${escapeHtml(row.word)}</td>
+					<td class="py-1 text-gray-300">${escapeHtml(row.meaning)}</td>
+					<td class="py-1 text-gray-400">${escapeHtml(row.level)}</td>
+					<td class="py-1 text-right font-mono text-green-400">+${row.plus}</td>
+					<td class="py-1 text-right font-mono text-red-400">-${row.minus}</td>
+					<td class="py-1 text-right font-mono ${row.delta > 0 ? 'text-green-400' : (row.delta < 0 ? 'text-red-400' : 'text-gray-300')}">${netSign}${row.delta}</td>
+				`;
+				tbody.appendChild(tr);
+			});
+
+			table.appendChild(tbody);
+			sessionContainer.appendChild(table);
 		}
 
 		function renderSection(container, groupedData, isPositive) {
