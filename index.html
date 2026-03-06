@@ -899,7 +899,7 @@
                    }}>
                 {displayGrid.map((row, rIdx) => (
                   row.map((cell, cIdx) => {
-                    let cellClass = "border border-gray-800 flex items-center justify-center text-sm font-bold ";
+                    let cellClass = "border border-gray-800 flex items-center justify-center text-sm md:text-lg font-bold ";
                     
                     if (cell === null) {
                       cellClass += "bg-gray-950";
@@ -1626,12 +1626,12 @@
                </div>
 
                {/* Letter Keys */}
-               <div className="grid grid-cols-10 gap-1">
+               <div className="grid grid-cols-10 gap-1 md:gap-2">
                   {"QWERTYUIOPASDFGHJKLZXCVBNM".split("").map((char) => (
                     <button
                       key={char}
                       onClick={() => handleKeyDown({ key: char, preventDefault: () => {} })} // Mimic event object
-                      className="bg-gray-700 text-white p-2 rounded text-xs md:text-sm font-bold active:bg-blue-500 shadow border border-gray-600"
+                      className="bg-gray-700 text-white p-2 md:p-3 rounded text-xs md:text-base font-bold active:bg-blue-500 shadow border border-gray-600"
                     >
                       {char}
                     </button>
