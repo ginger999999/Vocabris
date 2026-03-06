@@ -1770,7 +1770,7 @@
     <script>
       if ('serviceWorker' in navigator) {
         window.addEventListener('load', () => {
-          const swUrl = `/service-worker.js?v=${Date.now()}`;
+          const swUrl = '/service-worker.js?v=20260306-2';
           navigator.serviceWorker.register(swUrl)
             .then((registration) => {
               console.log('✅ Service Worker 註冊成功:', registration.scope);
