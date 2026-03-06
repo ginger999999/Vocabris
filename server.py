@@ -370,8 +370,9 @@ class VocabrisHandler(SimpleHTTPRequestHandler):
     
     def end_headers(self):
         self.send_header('Access-Control-Allow-Origin', '*')
-        # Prevent caching for vocabulary.json
-        if self.path and 'vocabulary.json' in self.path:
+        # Prevent caching for frequently updated app files.
+        no_cache_targets = ('vocabulary.json', 'index.html', 'service-worker.js', 'manifest.json')
+        if self.path and any(target in self.path for target in no_cache_targets):
             self.send_header('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0')
             self.send_header('Pragma', 'no-cache')
             self.send_header('Expires', '0')

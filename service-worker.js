@@ -1,6 +1,9 @@
-const CACHE_NAME = 'vocabris-v2';
+const CACHE_NAME = 'vocabris-v3';
 const urlsToCache = [
   '/',
+  '/index.html',
+  '/manifest.json',
+  '/service-worker.js',
   '/icon-192.png',
   '/icon-512.png'
 ];

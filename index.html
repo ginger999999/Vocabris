@@ -1747,6 +1747,20 @@
           navigator.serviceWorker.register('/service-worker.js')
             .then((registration) => {
               console.log('✅ Service Worker 註冊成功:', registration.scope);
+
+              // 主動檢查新版 SW，避免手機長時間使用舊快取。
+              registration.update();
+
+              // 若有新版安裝完成並接管，強制重整一次載入新資源。
+              let refreshing = false;
+              navigator.serviceWorker.addEventListener('controllerchange', () => {
+                if (refreshing) return;
+                refreshing = true;
+                window.location.reload();
+              });
+
+              // 每分鐘檢查一次更新（行動裝置背景快取較積極時特別有幫助）。
+              setInterval(() => registration.update(), 60000);
             })
             .catch((error) => {
               console.log('❌ Service Worker 註冊失敗:', error);
