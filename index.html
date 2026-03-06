@@ -377,6 +377,7 @@
           // Refs for audio and focus
           const gameContainerRef = useRef(null);
           const dropTouchLockRef = useRef(0);
+          const replayTouchLockRef = useRef(0);
           
           // --- Load Vocabulary from JSON file ---
           useEffect(() => {
@@ -848,6 +849,18 @@
             // Ignore synthetic click right after touchstart on mobile/tablet.
             if (Date.now() - dropTouchLockRef.current < 500) return;
             dropToBottom();
+          };
+
+          const handleReplayButtonTouchStart = (e) => {
+            e.preventDefault();
+            replayTouchLockRef.current = Date.now();
+            speakWord(currentWord?.data.word);
+          };
+
+          const handleReplayButtonClick = () => {
+            // Ignore synthetic click fired immediately after touchstart.
+            if (Date.now() - replayTouchLockRef.current < 500) return;
+            speakWord(currentWord?.data.word);
           };
 
           // --- Rendering Helpers ---
@@ -1717,16 +1730,18 @@
                     <div className="absolute top-2 right-2 z-10 flex items-center gap-2">
                       <button
                         type="button"
-                        onClick={() => speakWord(currentWord?.data.word)}
-                        className="p-2 md:px-6 md:py-4 bg-blue-900/80 border border-blue-500/30 rounded-lg backdrop-blur-sm text-blue-300 text-xs md:text-lg hover:bg-blue-800/80 active:scale-95 transition"
+                        onTouchStart={handleReplayButtonTouchStart}
+                        onClick={handleReplayButtonClick}
+                        className="p-2 md:px-6 md:py-4 bg-blue-900/80 border border-blue-500/30 rounded-lg backdrop-blur-sm text-blue-300 text-xs md:text-lg hover:bg-blue-800/80 active:scale-95 transition touch-manipulation"
                         aria-label="Replay pronunciation"
                       >
-                        Type missing letters! (輸入缺字母!)
+                        輸入所缺字母!
                       </button>
                       <button
                         type="button"
-                        onClick={() => speakWord(currentWord?.data.word)}
-                        className="w-9 h-9 md:w-14 md:h-14 flex items-center justify-center bg-cyan-600/90 border border-cyan-300/40 rounded-lg text-white hover:bg-cyan-500 active:scale-95 transition shadow"
+                        onTouchStart={handleReplayButtonTouchStart}
+                        onClick={handleReplayButtonClick}
+                        className="w-9 h-9 md:w-14 md:h-14 flex items-center justify-center bg-cyan-600/90 border border-cyan-300/40 rounded-lg text-white hover:bg-cyan-500 active:scale-95 transition shadow touch-manipulation"
                         aria-label="Replay word audio"
                         title="Replay Audio"
                       >
