@@ -1626,12 +1626,12 @@
                </div>
 
                {/* Letter Keys */}
-               <div className="grid grid-cols-10 gap-1 md:gap-2">
+               <div className="grid grid-cols-10 gap-1 md:gap-3">
                   {"QWERTYUIOPASDFGHJKLZXCVBNM".split("").map((char) => (
                     <button
                       key={char}
                       onClick={() => handleKeyDown({ key: char, preventDefault: () => {} })} // Mimic event object
-                      className="bg-gray-700 text-white p-2 md:p-4 rounded text-xs md:text-xl font-bold active:bg-blue-500 shadow border border-gray-600"
+                      className="bg-gray-700 text-white p-2.5 md:p-5 rounded text-sm md:text-2xl font-bold active:bg-blue-500 shadow border border-gray-600"
                     >
                       {char}
                     </button>
