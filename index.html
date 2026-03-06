@@ -320,6 +320,8 @@
         }
 
         function VocabrisApp() {
+          const UI_VERSION = 'UI 2026-03-06-2';
+
           // --- Game State ---
           const [currentUser, setCurrentUser] = useState(null); // 當前選擇的帳號
           const [gameState, setGameState] = useState('USER_SELECT'); // USER_SELECT, MENU, PLAYING, GAMEOVER, VOCAB_MANAGER
@@ -1571,8 +1573,8 @@
             </div>
           );
 
-           const VirtualKeyboard = () => (
-            <div className="md:hidden w-full max-w-lg mx-auto mt-2 relative pt-12">
+          const VirtualKeyboard = () => (
+            <div className="lg:hidden w-full max-w-lg mx-auto mt-2 relative pt-12">
               <button
                 className="absolute top-0 right-2 bg-orange-700 px-4 py-2 rounded-full active:bg-orange-500 active:scale-95 transition-all shadow-lg border border-orange-500"
                 onTouchStart={(e) => { e.preventDefault(); dropToBottom(); }}
@@ -1634,6 +1636,10 @@
               onKeyDown={handleKeyDown}
               ref={gameContainerRef}
             >
+              <div className="fixed top-2 right-2 z-[100] px-2 py-1 text-[10px] font-mono text-cyan-300 bg-black/70 border border-cyan-700 rounded">
+                {UI_VERSION}
+              </div>
+
               {gameState === 'USER_SELECT' && <UserSelectScreen />}
               {gameState === 'MENU' && <MenuScreen />}
               {gameState === 'GAMEOVER' && <GameOverScreen />}
@@ -1743,8 +1749,8 @@
                     </div>
                   )}
                   
-                  {/* Mobile Keyboard */}
-                  <div className="md:hidden w-full px-2 pb-2">
+                  {/* Mobile/Tablet Keyboard */}
+                  <div className="lg:hidden w-full px-2 pb-2">
                      <VirtualKeyboard />
                   </div>
                 </div>
@@ -1764,7 +1770,8 @@
     <script>
       if ('serviceWorker' in navigator) {
         window.addEventListener('load', () => {
-          navigator.serviceWorker.register('/service-worker.js')
+          const swUrl = `/service-worker.js?v=${Date.now()}`;
+          navigator.serviceWorker.register(swUrl)
             .then((registration) => {
               console.log('✅ Service Worker 註冊成功:', registration.scope);
 
