@@ -20,8 +20,20 @@
 				<option value="River">River</option>
 				<option value="Sigma">Sigma</option>
 			</select>
+			<label for="levelSelect" class="text-sm text-gray-400">難度 | Level:</label>
+			<select id="levelSelect" class="px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg">
+				<option value="elementary">Elementary</option>
+				<option value="intermediate">Intermediate</option>
+				<option value="advanced">Advanced</option>
+			</select>
+			<div id="sourceInfo" class="text-sm text-cyan-300"></div>
 			<div id="summary" class="text-sm text-gray-300"></div>
 		</div>
+
+		<section id="roundSettingsCard" class="bg-gray-900 border border-purple-700/40 rounded-2xl p-4 mb-6 hidden">
+			<h2 class="text-xl font-bold text-purple-400 mb-2">本局設定</h2>
+			<div id="roundSettings" class="text-sm text-gray-300"></div>
+		</section>
 
 		<section class="bg-gray-900 border border-blue-700/40 rounded-2xl p-4 mb-6">
 			<div class="flex items-center justify-between gap-3 mb-2">
@@ -48,6 +60,10 @@
 	<script>
 		const userSelect = document.getElementById('userSelect');
 		const summary = document.getElementById('summary');
+		const levelSelect = document.getElementById('levelSelect');
+		const sourceInfo = document.getElementById('sourceInfo');
+		const roundSettingsCard = document.getElementById('roundSettingsCard');
+		const roundSettings = document.getElementById('roundSettings');
 		const positiveContainer = document.getElementById('positiveContainer');
 		const negativeContainer = document.getElementById('negativeContainer');
 		const sessionSummary = document.getElementById('sessionSummary');
@@ -55,9 +71,28 @@
 		const clearSessionBtn = document.getElementById('clearSessionBtn');
 		const backBtn = document.getElementById('backBtn');
 
-		const urlUser = new URLSearchParams(window.location.search).get('user');
+		const urlParams = new URLSearchParams(window.location.search);
+		const urlUser = urlParams.get('user');
+		const urlLevel = urlParams.get('level');
+		const urlSpeed = urlParams.get('speed') || 'normal';
+		const urlScore = urlParams.get('score') || '0';
+		const isLockedMode = urlParams.get('locked') === '1';
 		if (urlUser && ['Ginger', 'River', 'Sigma'].includes(urlUser)) {
 			userSelect.value = urlUser;
+		}
+		if (urlLevel && ['elementary', 'intermediate', 'advanced'].includes(urlLevel)) {
+			levelSelect.value = urlLevel;
+		}
+
+		if (isLockedMode) {
+			userSelect.disabled = true;
+			levelSelect.disabled = true;
+			clearSessionBtn.disabled = true;
+			userSelect.classList.add('opacity-60', 'cursor-not-allowed');
+			levelSelect.classList.add('opacity-60', 'cursor-not-allowed');
+			clearSessionBtn.classList.add('opacity-60', 'cursor-not-allowed');
+			roundSettingsCard.classList.remove('hidden');
+			roundSettings.textContent = `帳號: ${userSelect.value} ｜ 難度: ${levelSelect.value} ｜ 速度: ${urlSpeed} ｜ 最終分數: ${urlScore}`;
 		}
 
 		backBtn.addEventListener('click', () => {
@@ -69,16 +104,31 @@
 		});
 
 		userSelect.addEventListener('change', () => {
+			if (isLockedMode) return;
 			const user = userSelect.value;
+			const level = levelSelect.value;
 			const url = new URL(window.location.href);
 			url.searchParams.set('user', user);
+			url.searchParams.set('level', level);
+			window.history.replaceState({}, '', url);
+			loadStats();
+		});
+
+		levelSelect.addEventListener('change', () => {
+			if (isLockedMode) return;
+			const user = userSelect.value;
+			const level = levelSelect.value;
+			const url = new URL(window.location.href);
+			url.searchParams.set('user', user);
+			url.searchParams.set('level', level);
 			window.history.replaceState({}, '', url);
 			loadStats();
 		});
 
 		clearSessionBtn.addEventListener('click', () => {
+			if (isLockedMode) return;
 			const user = userSelect.value;
-			clearSessionDelta(user);
+			clearSessionDelta(user, levelSelect.value);
 			loadStats();
 		});
 
@@ -87,40 +137,50 @@
 		async function loadStats() {
 			try {
 				const ts = Date.now();
-				const response = await fetch(`/vocabulary.json?v=${ts}`);
-				if (!response.ok) {
-					throw new Error('無法載入 vocabulary.json');
+				const user = userSelect.value;
+				const activeLevel = levelSelect.value;
+				const [levelDataResult, csvConfig] = await Promise.all([
+					loadLevelWords(activeLevel, ts),
+					loadCurrentCsvConfig(ts)
+				]);
+
+				if (!levelDataResult.ok) {
+					throw new Error('無法載入目前等級資料');
 				}
 
-				const data = await response.json();
-				const user = userSelect.value;
-				const sessionDelta = loadSessionDelta(user);
-
-				const positiveByLevel = { elementary: [], intermediate: [], advanced: [] };
-				const negativeByLevel = { elementary: [], intermediate: [], advanced: [] };
-
-				['elementary', 'intermediate', 'advanced'].forEach((level) => {
-					const words = Array.isArray(data[level]) ? data[level] : [];
-					words.forEach((item) => {
-						const score = parseInt(item[user] || '0', 10) || 0;
-						const row = { word: item.word, meaning: item.meaning, score };
-						if (score > 0) positiveByLevel[level].push(row);
-						if (score < 0) negativeByLevel[level].push(row);
-					});
-
-					positiveByLevel[level].sort((a, b) => b.score - a.score);
-					negativeByLevel[level].sort((a, b) => a.score - b.score);
+				const words = levelDataResult.words;
+				const sourceFile = levelDataResult.source || ((csvConfig && csvConfig[activeLevel]) ? csvConfig[activeLevel] : '(unknown)');
+				const sessionDelta = loadSessionDelta(user, activeLevel, sourceFile);
+				const sessionMinusByWord = {};
+				Object.entries(sessionDelta || {}).forEach(([word, info]) => {
+					if ((info?.level || '') !== activeLevel) return;
+					if (info?.source && info.source !== sourceFile) return;
+					const minus = parseInt(info?.minus || '0', 10) || 0;
+					if (minus > 0) sessionMinusByWord[word] = minus;
+				});
+				const positiveList = [];
+				const negativeList = [];
+				words.forEach((item) => {
+					const score = parseInt(item[user] || '0', 10) || 0;
+					const minusInSession = sessionMinusByWord[item.word] || 0;
+					const displayNegativeScore = score < 0 ? score : (minusInSession > 0 ? -minusInSession : score);
+					const row = { word: item.word, meaning: item.meaning, score, displayNegativeScore };
+					if (score > 0) positiveList.push(row);
+					if (score < 0 || minusInSession > 0) negativeList.push(row);
 				});
 
-				renderSection(positiveContainer, positiveByLevel, true);
-				renderSection(negativeContainer, negativeByLevel, false);
-				renderSessionDelta(sessionDelta);
+				positiveList.sort((a, b) => b.score - a.score);
+				negativeList.sort((a, b) => a.score - b.score);
 
-				const positiveCount = Object.values(positiveByLevel).reduce((sum, arr) => sum + arr.length, 0);
-				const negativeCount = Object.values(negativeByLevel).reduce((sum, arr) => sum + arr.length, 0);
-				summary.textContent = `目前帳號：${user}｜正分 ${positiveCount} 筆｜負分 ${negativeCount} 筆`;
+				renderSingleLevelSection(positiveContainer, positiveList, true, activeLevel);
+				renderSingleLevelSection(negativeContainer, negativeList, false, activeLevel);
+				renderSessionDelta(sessionDelta, activeLevel, sourceFile);
+
+				sourceInfo.textContent = `資料來源：${activeLevel} -> ${sourceFile}`;
+				summary.textContent = `目前帳號：${user}｜目前等級：${activeLevel}｜正分 ${positiveList.length} 筆｜負分 ${negativeList.length} 筆`;
 			} catch (error) {
 				summary.textContent = '載入失敗: ' + error.message;
+				sourceInfo.textContent = '';
 				positiveContainer.innerHTML = '';
 				negativeContainer.innerHTML = '';
 				sessionSummary.textContent = '本局資料載入失敗';
@@ -128,25 +188,83 @@
 			}
 		}
 
-		function loadSessionDelta(user) {
+		async function loadLevelWords(level, ts) {
 			try {
-				const raw = localStorage.getItem(`vocabris_session_delta_${user}`);
-				const parsed = raw ? JSON.parse(raw) : {};
+				const apiResponse = await fetch(`/api/get-level-words?level=${encodeURIComponent(level)}&v=${ts}`);
+				if (apiResponse.ok) {
+					const data = await apiResponse.json();
+					return {
+						ok: true,
+						source: data.source,
+						words: Array.isArray(data.words) ? data.words : []
+					};
+				}
+			} catch (error) {
+				// ignore and fallback to vocabulary.json
+			}
+
+			const response = await fetch(`/vocabulary.json?v=${ts}`);
+			if (!response.ok) {
+				return { ok: false, source: '', words: [] };
+			}
+
+			const data = await response.json();
+			return {
+				ok: true,
+				source: '',
+				words: Array.isArray(data[level]) ? data[level] : []
+			};
+		}
+
+		async function loadCurrentCsvConfig(ts) {
+			const fallback = {
+				elementary: 'elementary_words.csv',
+				intermediate: 'intermediate_words.csv',
+				advanced: 'advanced_words.csv'
+			};
+
+			try {
+				const apiResponse = await fetch('/api/get-csv-config');
+				if (apiResponse.ok) {
+					return await apiResponse.json();
+				}
+			} catch (error) {
+				// ignore and try static fallback
+			}
+
+			try {
+				const staticResponse = await fetch(`/csv_config.json?v=${ts}`);
+				if (staticResponse.ok) {
+					return await staticResponse.json();
+				}
+			} catch (error) {
+				// ignore and use hardcoded fallback
+			}
+
+			return fallback;
+		}
+
+		function loadSessionDelta(user, level, source) {
+			const key = `vocabris_session_delta_${user}_${level}`;
+			try {
+				const raw = localStorage.getItem(key);
+				if (!raw) return {};
+				const parsed = JSON.parse(raw);
 				return parsed && typeof parsed === 'object' ? parsed : {};
 			} catch {
 				return {};
 			}
 		}
 
-		function clearSessionDelta(user) {
+		function clearSessionDelta(user, level) {
 			try {
-				localStorage.removeItem(`vocabris_session_delta_${user}`);
+				localStorage.removeItem(`vocabris_session_delta_${user}_${level}`);
 			} catch {
 				// ignore storage errors
 			}
 		}
 
-		function renderSessionDelta(deltaMap) {
+		function renderSessionDelta(deltaMap, activeLevel, sourceFile) {
 			sessionContainer.innerHTML = '';
 			const list = Object.entries(deltaMap || {})
 				.map(([word, info]) => ({
@@ -155,13 +273,16 @@
 					plus: parseInt(info?.plus || '0', 10) || (parseInt(info?.delta || '0', 10) > 0 ? parseInt(info?.delta || '0', 10) : 0),
 					minus: parseInt(info?.minus || '0', 10) || (parseInt(info?.delta || '0', 10) < 0 ? Math.abs(parseInt(info?.delta || '0', 10)) : 0),
 					level: info?.level || '',
+					source: info?.source || '',
 					meaning: info?.meaning || ''
 				}))
+				.filter((item) => item.level === activeLevel)
+				.filter((item) => !item.source || item.source === sourceFile)
 				.filter((item) => item.plus > 0 || item.minus > 0 || item.delta !== 0)
 				.sort((a, b) => (b.plus + b.minus) - (a.plus + a.minus));
 
 			if (list.length === 0) {
-				sessionSummary.textContent = '本局目前沒有分數變動';
+				sessionSummary.textContent = `本局目前在 ${activeLevel} 沒有分數變動`;
 				return;
 			}
 
@@ -204,7 +325,7 @@
 			sessionContainer.appendChild(table);
 		}
 
-		function renderSection(container, groupedData, isPositive) {
+		function renderSingleLevelSection(container, list, isPositive, level) {
 			container.innerHTML = '';
 			const levelLabels = {
 				elementary: 'Elementary',
@@ -212,52 +333,50 @@
 				advanced: 'Advanced'
 			};
 
-			['elementary', 'intermediate', 'advanced'].forEach((level) => {
-				const list = groupedData[level];
-				const card = document.createElement('div');
-				card.className = 'bg-gray-800/60 border border-gray-700 rounded-xl p-3';
+			const card = document.createElement('div');
+			card.className = 'bg-gray-800/60 border border-gray-700 rounded-xl p-3';
 
-				const title = document.createElement('div');
-				title.className = 'text-sm font-bold text-gray-300 mb-2';
-				title.textContent = `${levelLabels[level]} (${list.length})`;
-				card.appendChild(title);
+			const title = document.createElement('div');
+			title.className = 'text-sm font-bold text-gray-300 mb-2';
+			title.textContent = `${levelLabels[level] || level} (${list.length})`;
+			card.appendChild(title);
 
-				if (list.length === 0) {
-					const empty = document.createElement('p');
-					empty.className = 'text-xs text-gray-500';
-					empty.textContent = '無資料';
-					card.appendChild(empty);
-				} else {
-					const table = document.createElement('table');
-					table.className = 'w-full text-sm';
-					table.innerHTML = `
-						<thead>
-							<tr class="text-left text-gray-400 border-b border-gray-700">
-								<th class="py-1">單字</th>
-								<th class="py-1">中文</th>
-								<th class="py-1 text-right">分數</th>
-							</tr>
-						</thead>
+			if (list.length === 0) {
+				const empty = document.createElement('p');
+				empty.className = 'text-xs text-gray-500';
+				empty.textContent = '無資料';
+				card.appendChild(empty);
+			} else {
+				const table = document.createElement('table');
+				table.className = 'w-full text-sm';
+				table.innerHTML = `
+					<thead>
+						<tr class="text-left text-gray-400 border-b border-gray-700">
+							<th class="py-1">單字</th>
+							<th class="py-1">中文</th>
+							<th class="py-1 text-right">分數</th>
+						</tr>
+					</thead>
+				`;
+
+				const tbody = document.createElement('tbody');
+				list.forEach((row) => {
+					const tr = document.createElement('tr');
+					tr.className = 'border-b border-gray-800';
+					const scoreToDisplay = isPositive ? row.score : (typeof row.displayNegativeScore === 'number' ? row.displayNegativeScore : row.score);
+					tr.innerHTML = `
+						<td class="py-1 font-bold">${escapeHtml(row.word)}</td>
+						<td class="py-1 text-gray-300">${escapeHtml(row.meaning || '')}</td>
+						<td class="py-1 text-right font-mono ${isPositive ? 'text-green-400' : 'text-red-400'}">${scoreToDisplay}</td>
 					`;
+					tbody.appendChild(tr);
+				});
 
-					const tbody = document.createElement('tbody');
-					list.forEach((row) => {
-						const tr = document.createElement('tr');
-						tr.className = 'border-b border-gray-800';
-						tr.innerHTML = `
-							<td class="py-1 font-bold">${escapeHtml(row.word)}</td>
-							<td class="py-1 text-gray-300">${escapeHtml(row.meaning || '')}</td>
-							<td class="py-1 text-right font-mono ${isPositive ? 'text-green-400' : 'text-red-400'}">${row.score}</td>
-						`;
-						tbody.appendChild(tr);
-					});
+				table.appendChild(tbody);
+				card.appendChild(table);
+			}
 
-					table.appendChild(tbody);
-					card.appendChild(table);
-				}
-
-				container.appendChild(card);
-			});
+			container.appendChild(card);
 		}
 
 		function escapeHtml(text) {

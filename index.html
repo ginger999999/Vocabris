@@ -320,7 +320,7 @@
         }
 
         function VocabrisApp() {
-          const UI_VERSION = 'UI 2026-03-06-2';
+          const UI_VERSION = 'UI 2026-03-19-1';
 
           // --- Game State ---
           const [currentUser, setCurrentUser] = useState(null); // 當前選擇的帳號
@@ -328,7 +328,22 @@
           const [level, setLevel] = useState('elementary');
           const [speedMode, setSpeedMode] = useState('normal');
           const [score, setScore] = useState(0);
+          const [statOverlayUrl, setStatOverlayUrl] = useState('');
           const [vocabularyLoaded, setVocabularyLoaded] = useState(false);
+          const [debugState, setDebugState] = useState({
+            lastAction: 'init',
+            lastWord: '-',
+            lastDelta: 0,
+            lastSync: 'idle',
+            lastSyncLevel: '-',
+            lastSyncAt: '-'
+          });
+          const [debugLogs, setDebugLogs] = useState([]);
+          const [csvConfig, setCsvConfig] = useState({
+            elementary: 'elementary_words.csv',
+            intermediate: 'intermediate_words.csv',
+            advanced: 'advanced_words.csv'
+          });
           
           // --- Vocabulary Manager State ---
           const [editingLevel, setEditingLevel] = useState('elementary');
@@ -338,6 +353,7 @@
           // --- Word Mastery Tracking ---
           // Format: { "WORD": correctCount } - 根據當前用戶從 vocabulary.json 載入
           const [wordMastery, setWordMastery] = useState({});
+          const [wordScores, setWordScores] = useState({});
           
           // Mastered words (answered correctly 3 times)
           const [masteredWords, setMasteredWords] = useState([]);
@@ -378,6 +394,20 @@
           const gameContainerRef = useRef(null);
           const dropTouchLockRef = useRef(0);
           const replayTouchLockRef = useRef(0);
+
+          const nowTime = () => new Date().toLocaleTimeString('zh-TW', { hour12: false });
+          const pushDebugLog = useCallback((message) => {
+            const line = `[${nowTime()}] ${message}`;
+            setDebugLogs(prev => [line, ...prev].slice(0, 10));
+          }, []);
+
+          const updateDebugState = useCallback((patch) => {
+            setDebugState(prev => ({
+              ...prev,
+              ...patch,
+              lastSyncAt: nowTime()
+            }));
+          }, []);
           
           // --- Load Vocabulary from JSON file ---
           useEffect(() => {
@@ -400,6 +430,31 @@
                 setVocabularyLoaded(true);
               });
           }, []);
+
+          // Load active CSV config for source-aware session tracking.
+          useEffect(() => {
+            const timestamp = Date.now();
+            fetch('/api/get-csv-config')
+              .then((res) => {
+                if (!res.ok) throw new Error('api unavailable');
+                return res.json();
+              })
+              .then((data) => {
+                setCsvConfig(data || {});
+              })
+              .catch(() => {
+                fetch(`/csv_config.json?v=${timestamp}`)
+                  .then((res) => res.json())
+                  .then((data) => setCsvConfig(data || {}))
+                  .catch(() => {
+                    setCsvConfig({
+                      elementary: 'elementary_words.csv',
+                      intermediate: 'intermediate_words.csv',
+                      advanced: 'advanced_words.csv'
+                    });
+                  });
+              });
+          }, []);
           
           // --- Load User Progress from vocabulary data when user is selected ---
           useEffect(() => {
@@ -418,13 +473,137 @@
                   }
                 });
               });
+
+              const scoreMap = {};
+              Object.keys(WORD_DATABASE).forEach((lvl) => {
+                WORD_DATABASE[lvl].forEach((wordData) => {
+                  const wordScore = parseInt(wordData[currentUser] || '0', 10);
+                  scoreMap[wordData.word] = Number.isNaN(wordScore) ? 0 : wordScore;
+                });
+              });
               
               setWordMastery(mastery);
               setMasteredWords(mastered);
+              setWordScores(scoreMap);
             }
           }, [currentUser, vocabularyLoaded]);
+
+          const getCurrentSourceFile = useCallback((lvl) => {
+            return csvConfig[lvl] || `${lvl}_words.csv`;
+          }, [csvConfig]);
+
+          const appendSessionDelta = useCallback((wordData, deltaValue) => {
+            if (!currentUser || !wordData) return;
+            const activeLevel = level;
+            const sourceFile = getCurrentSourceFile(activeLevel);
+            const storageKey = `vocabris_session_delta_${currentUser}_${activeLevel}`;
+
+            let current = {};
+            try {
+              const raw = localStorage.getItem(storageKey);
+              current = raw ? JSON.parse(raw) : {};
+            } catch {
+              current = {};
+            }
+
+            const word = wordData.word;
+            const prev = current[word] || {
+              delta: 0,
+              plus: 0,
+              minus: 0,
+              level: activeLevel,
+              source: sourceFile || '',
+              meaning: wordData.meaning || ''
+            };
+
+            const nextDelta = (parseInt(prev.delta, 10) || 0) + deltaValue;
+            const nextPlus = (parseInt(prev.plus, 10) || 0) + (deltaValue > 0 ? deltaValue : 0);
+            const nextMinus = (parseInt(prev.minus, 10) || 0) + (deltaValue < 0 ? Math.abs(deltaValue) : 0);
+
+            current[word] = {
+              ...prev,
+              delta: nextDelta,
+              plus: nextPlus,
+              minus: nextMinus,
+              level: activeLevel,
+              source: sourceFile || prev.source || '',
+              meaning: wordData.meaning || prev.meaning || ''
+            };
+
+            localStorage.setItem(storageKey, JSON.stringify(current));
+            updateDebugState({
+              lastAction: deltaValue >= 0 ? 'delta_plus' : 'delta_minus',
+              lastWord: word,
+              lastDelta: deltaValue
+            });
+            pushDebugLog(`session delta ${deltaValue >= 0 ? '+' : ''}${deltaValue} -> ${word}`);
+          }, [currentUser, level, getCurrentSourceFile, pushDebugLog, updateDebugState]);
           
           // --- Save Progress - Update vocabulary data and trigger backend save ---
+          const syncProgressToServer = useCallback(async (targetLevel = level) => {
+            if (!currentUser || !WORD_DATABASE) return;
+            const levelWords = WORD_DATABASE[targetLevel] || [];
+            const progressPayload = {};
+
+            updateDebugState({ lastSync: 'syncing', lastSyncLevel: targetLevel });
+            pushDebugLog(`sync start: ${targetLevel}`);
+
+            levelWords.forEach((wordData) => {
+              const word = wordData.word;
+              progressPayload[word] = Number(wordScores[word] || 0);
+            });
+
+            try {
+              await fetch('/api/save-progress', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  user: currentUser,
+                  level: targetLevel,
+                  progress: progressPayload
+                })
+              });
+              updateDebugState({ lastSync: 'ok', lastSyncLevel: targetLevel });
+              pushDebugLog(`sync ok: ${targetLevel}`);
+            } catch (error) {
+              updateDebugState({ lastSync: 'error', lastSyncLevel: targetLevel });
+              pushDebugLog(`sync error: ${targetLevel}`);
+              throw error;
+            }
+          }, [currentUser, level, wordScores, pushDebugLog, updateDebugState]);
+
+          const syncProgressSnapshotToServer = useCallback(async (scoreSnapshot, targetLevel = level) => {
+            if (!currentUser || !WORD_DATABASE) return;
+            const levelWords = WORD_DATABASE[targetLevel] || [];
+            const progressPayload = {};
+
+            updateDebugState({ lastSync: 'syncing', lastSyncLevel: targetLevel });
+            pushDebugLog(`snapshot sync start: ${targetLevel}`);
+
+            levelWords.forEach((wordData) => {
+              const word = wordData.word;
+              progressPayload[word] = Number(scoreSnapshot[word] || 0);
+            });
+
+            try {
+              await fetch('/api/save-progress', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  user: currentUser,
+                  level: targetLevel,
+                  progress: progressPayload
+                })
+              });
+              updateDebugState({ lastSync: 'ok', lastSyncLevel: targetLevel });
+              pushDebugLog(`snapshot sync ok: ${targetLevel}`);
+            } catch (error) {
+              updateDebugState({ lastSync: 'error', lastSyncLevel: targetLevel });
+              pushDebugLog(`snapshot sync error: ${targetLevel}`);
+              throw error;
+            }
+          }, [currentUser, level, pushDebugLog, updateDebugState]);
+
           const saveProgress = useCallback(() => {
             if (!currentUser || !WORD_DATABASE) return;
             
@@ -432,22 +611,19 @@
             Object.keys(WORD_DATABASE).forEach(level => {
               WORD_DATABASE[level].forEach(wordData => {
                 const word = wordData.word;
-                if (masteredWords.includes(word)) {
-                  wordData[currentUser] = '3';
-                } else if (wordMastery[word]) {
-                  wordData[currentUser] = String(wordMastery[word]);
-                } else {
-                  wordData[currentUser] = '0';
-                }
+                wordData[currentUser] = String(Number(wordScores[word] || 0));
               });
             });
             
             // 保存到 localStorage 作為備份
             localStorage.setItem(`vocabris_mastery_${currentUser}`, JSON.stringify(wordMastery));
             localStorage.setItem(`vocabris_mastered_${currentUser}`, JSON.stringify(masteredWords));
-            
-            // TODO: 可以在這裡添加 API 調用來保存回 CSV 檔案
-          }, [currentUser, wordMastery, masteredWords]);
+
+            // 同步到伺服器（寫入當前等級實際使用的 CSV）
+            syncProgressToServer(level).catch((error) => {
+              console.warn('save-progress API unavailable, keep local backup only:', error);
+            });
+          }, [currentUser, level, wordMastery, masteredWords, wordScores, syncProgressToServer]);
           
           // 當進度變化時自動保存
           useEffect(() => {
@@ -469,6 +645,39 @@
                 return () => clearTimeout(timeoutId);
             }
           }, [gameState, currentWord?.phase, currentWord?.data.word]);
+
+          const openStatPage = useCallback(async () => {
+            const user = currentUser || 'Ginger';
+            const currentLevel = level || 'elementary';
+            try {
+              await syncProgressToServer(currentLevel);
+            } catch (error) {
+              console.warn('Failed to flush latest progress before opening stats:', error);
+            }
+            const params = new URLSearchParams({
+              user,
+              level: currentLevel,
+              speed: speedMode,
+              score: String(score),
+              locked: '1'
+            });
+            setStatOverlayUrl(`/stat.html?${params.toString()}`);
+          }, [currentUser, level, speedMode, score, syncProgressToServer]);
+
+          const closeStatOverlay = useCallback(() => {
+            setStatOverlayUrl('');
+          }, []);
+
+          useEffect(() => {
+            const handleStatMessage = (event) => {
+              if (event.data && event.data.type === 'STAT_CLOSE') {
+                closeStatOverlay();
+              }
+            };
+
+            window.addEventListener('message', handleStatMessage);
+            return () => window.removeEventListener('message', handleStatMessage);
+          }, [closeStatOverlay]);
 
           // --- Helpers ---
 
@@ -683,7 +892,7 @@
               if (e.key === ' ' || e.code === 'Space' || e.key === 'Spacebar') {
                 e.preventDefault();
                 // Hard drop: send the current word to the bottom immediately.
-                dropToBottom();
+                dropToBottom({ applyPenaltyIfIncomplete: true, reason: 'space_key' });
                 return;
               }
             }
@@ -724,6 +933,15 @@
                 } else {
                   // Wrong Input
                   setInputLocked(true); // Red flash / freeze
+                  setWordScores(prev => {
+                    const nextScores = {
+                      ...prev,
+                      [currentWord.data.word]: (Number(prev[currentWord.data.word]) || 0) - 1
+                    };
+                    syncProgressSnapshotToServer(nextScores, level).catch(() => {});
+                    return nextScores;
+                  });
+                  appendSessionDelta(currentWord.data, -1);
                   // Optional: Play error sound
                 }
               }
@@ -762,6 +980,15 @@
             if (selectedMeaning === currentWord.data.meaning) {
               // Success!
               setScore(prev => prev + (currentWord.letters.length * 100));
+              setWordScores(prev => {
+                const nextScores = {
+                  ...prev,
+                  [currentWord.data.word]: (Number(prev[currentWord.data.word]) || 0) + 1
+                };
+                syncProgressSnapshotToServer(nextScores, level).catch(() => {});
+                return nextScores;
+              });
+              appendSessionDelta(currentWord.data, 1);
               
               // Update word mastery tracking
               const word = currentWord.data.word;
@@ -800,6 +1027,17 @@
                 delete updated[word];
                 return updated;
               });
+
+              // Wrong answer should be recorded as -1
+              setWordScores(prev => {
+                const nextScores = {
+                  ...prev,
+                  [word]: (Number(prev[word]) || 0) - 1
+                };
+                syncProgressSnapshotToServer(nextScores, level).catch(() => {});
+                return nextScores;
+              });
+              appendSessionDelta(currentWord.data, -1);
               
               // Drop to bottom immediately
               dropToBottom();
@@ -808,10 +1046,30 @@
             setMeaningCursorIndex(0);
           };
 
-          const dropToBottom = () => {
+          const dropToBottom = (options = {}) => {
+            if (!currentWord) return;
+            const { applyPenaltyIfIncomplete = false, reason = 'drop' } = options;
+            const activeWord = currentWord;
+
+            const hasMissingBeforeDrop = activeWord.phase === 'A' && activeWord.letters.some(l => l.status === 'missing' && !l.input);
+            if (applyPenaltyIfIncomplete && hasMissingBeforeDrop) {
+              const dropWord = activeWord.data.word;
+              setWordScores(prev => {
+                const nextScores = {
+                  ...prev,
+                  [dropWord]: (Number(prev[dropWord]) || 0) - 1
+                };
+                syncProgressSnapshotToServer(nextScores, level).catch(() => {});
+                return nextScores;
+              });
+              appendSessionDelta(activeWord.data, -1);
+              updateDebugState({ lastAction: 'hard_drop_penalty', lastWord: dropWord, lastDelta: -1 });
+              pushDebugLog(`hard drop penalty -1 -> ${dropWord} (${reason})`);
+            }
+
             // Find the lowest possible position for the word
-            const { x, letters } = currentWord;
-            let finalY = currentWord.y;
+            const { x, letters } = activeWord;
+            let finalY = activeWord.y;
             
             // Keep moving down until collision
             while (finalY < GRID_ROWS && !checkCollision(x, finalY + 1, letters.length, grid)) {
@@ -824,7 +1082,7 @@
             // Use setTimeout to ensure the visual update happens before solidifying
             setTimeout(() => {
               const newGrid = [...grid];
-              const { x, letters } = currentWord;
+              const { x, letters } = activeWord;
               
               letters.forEach((l, idx) => {
                 const gridY = finalY;
@@ -842,13 +1100,13 @@
           const handleDropButtonTouchStart = (e) => {
             e.preventDefault();
             dropTouchLockRef.current = Date.now();
-            dropToBottom();
+            dropToBottom({ applyPenaltyIfIncomplete: true, reason: 'drop_button_touch' });
           };
 
           const handleDropButtonClick = () => {
             // Ignore synthetic click right after touchstart on mobile/tablet.
             if (Date.now() - dropTouchLockRef.current < 500) return;
-            dropToBottom();
+            dropToBottom({ applyPenaltyIfIncomplete: true, reason: 'drop_button_click' });
           };
 
           const handleReplayButtonTouchStart = (e) => {
@@ -1124,6 +1382,7 @@
             const [selectedCsvFile, setSelectedCsvFile] = useState(`${editingLevel}_words.csv`);
             const [currentCsvConfig, setCurrentCsvConfig] = useState({});
             const [isSwitching, setIsSwitching] = useState(false);
+            const [isDeletingCsv, setIsDeletingCsv] = useState(false);
             const [editingWordName, setEditingWordName] = useState(null); // Track by word name instead of object
             const [isServerMode, setIsServerMode] = useState(false); // Check if server APIs are available
             
@@ -1246,6 +1505,50 @@
                 alert('切換失敗: ' + error.message);
               } finally {
                 setIsSwitching(false);
+              }
+            };
+
+            const handleDeleteCsv = async () => {
+              if (!isServerMode) {
+                alert('目前為靜態模式，無法刪除檔案。\n請使用本地 server.py 模式。');
+                return;
+              }
+
+              const targetFile = selectedCsvFile;
+              if (!targetFile) {
+                alert('請先選擇要刪除的資料檔案');
+                return;
+              }
+
+              if (Object.values(currentCsvConfig || {}).includes(targetFile)) {
+                alert(`無法刪除目前正在使用的檔案：${targetFile}\n請先切換其他資料來源再刪除。`);
+                return;
+              }
+
+              if (!window.confirm(`確定要刪除資料檔案「${targetFile}」嗎？\n\n刪除後無法復原。\n\nDelete "${targetFile}"? This cannot be undone.`)) {
+                return;
+              }
+
+              setIsDeletingCsv(true);
+              try {
+                const response = await fetch('/api/delete-csv', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ filename: targetFile })
+                });
+
+                const result = await response.json();
+                if (!response.ok || !result.success) {
+                  throw new Error(result.error || 'Unknown error');
+                }
+
+                await reloadCsvList();
+                setSelectedCsvFile(currentCsvConfig[editingLevel] || `${editingLevel}_words.csv`);
+                alert(`已刪除：${targetFile}`);
+              } catch (error) {
+                alert('刪除失敗: ' + error.message);
+              } finally {
+                setIsDeletingCsv(false);
               }
             };
             
@@ -1439,6 +1742,14 @@
                         >
                           📁 自建資料
                         </button>
+                        <button
+                          onClick={handleDeleteCsv}
+                          disabled={isDeletingCsv || !selectedCsvFile}
+                          className="px-4 py-2 bg-red-600 hover:bg-red-700 disabled:bg-gray-600 disabled:cursor-not-allowed rounded-lg text-sm font-bold transition-all whitespace-nowrap"
+                          title="刪除目前選擇的資料檔案"
+                        >
+                          {isDeletingCsv ? '刪除中...' : '🗑 刪除'}
+                        </button>
                       </div>
                       <p className="text-xs text-gray-500 mt-1">
                         💡 目前使用: <span className="text-green-400 font-bold">{currentCsvConfig[editingLevel] || 'loading...'}</span>
@@ -1580,22 +1891,32 @@
           };
 
           const GameOverScreen = () => (
-            <div className="absolute inset-0 z-50 bg-black/90 text-white flex flex-col items-center justify-center p-6 text-center animate-in fade-in duration-500">
-              {Skull && <Skull size={64} className="text-red-500 mb-4" />}
-              <h2 className="text-4xl font-bold mb-2">GAME OVER (遊戲結束)</h2>
-              <p className="text-gray-400 mb-8">The stack reached the top! (方塊堆到頂了!)</p>
-              
-              <div className="bg-gray-800 rounded-xl p-6 mb-8 w-64 border border-gray-700">
-                <p className="text-sm text-gray-500 uppercase tracking-wider mb-1">Final Score (最終分數)</p>
-                <p className="text-5xl font-mono text-yellow-400">{score}</p>
-              </div>
+            <div className="absolute right-4 top-28 md:top-32 z-50 w-[min(92vw,430px)] text-white animate-in fade-in duration-500">
+              <div className="bg-black/85 border border-red-500/40 rounded-2xl shadow-2xl backdrop-blur-md p-6 text-center">
+                {Skull && <Skull size={56} className="text-red-500 mb-3 mx-auto" />}
+                <h2 className="text-3xl font-black mb-1">GAME OVER</h2>
+                <p className="text-sm text-gray-300 mb-5">遊戲結束 | The stack reached the top</p>
 
-              <button 
-                onClick={() => setGameState('MENU')}
-                className="px-8 py-3 bg-white text-black font-bold rounded-full hover:bg-gray-200 transition-colors flex items-center gap-2"
-              >
-                {RefreshCw && <RefreshCw size={20} />} Play Again (再玩一次)
-              </button>
+                <div className="bg-gray-900/90 rounded-xl p-5 mb-5 border border-gray-700">
+                  <p className="text-xs text-gray-500 uppercase tracking-wider mb-1">Final Score (最終分數)</p>
+                  <p className="text-5xl font-mono text-yellow-400">{score}</p>
+                </div>
+
+                <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
+                  <button
+                    onClick={openStatPage}
+                    className="w-full sm:w-auto px-6 py-3 bg-blue-600 text-white font-bold rounded-full hover:bg-blue-700 transition-colors"
+                  >
+                    查看統計 | View Stats
+                  </button>
+                  <button 
+                    onClick={() => setGameState('MENU')}
+                    className="w-full sm:w-auto px-8 py-3 bg-white text-black font-bold rounded-full hover:bg-gray-200 transition-colors flex items-center justify-center gap-2"
+                  >
+                    {RefreshCw && <RefreshCw size={20} />} Play Again (再玩一次)
+                  </button>
+                </div>
+              </div>
             </div>
           );
 
@@ -1666,10 +1987,49 @@
                 {UI_VERSION}
               </div>
 
+              <div className="fixed bottom-2 right-2 z-[110] w-[min(92vw,360px)] bg-black/80 border border-emerald-700/60 rounded-lg p-3 text-[11px] font-mono text-emerald-200 backdrop-blur-sm">
+                <div className="font-bold text-emerald-300 mb-1">Debug Panel</div>
+                <div>user: {currentUser || '-'}</div>
+                <div>level/source: {level} / {getCurrentSourceFile(level)}</div>
+                <div>lastAction: {debugState.lastAction}</div>
+                <div>lastWord: {debugState.lastWord} ({debugState.lastDelta >= 0 ? '+' : ''}{debugState.lastDelta})</div>
+                <div>sync: {debugState.lastSync} ({debugState.lastSyncLevel}) @ {debugState.lastSyncAt}</div>
+                <div className="mt-1 border-t border-emerald-700/40 pt-1 max-h-24 overflow-y-auto space-y-1">
+                  {debugLogs.length === 0 ? (
+                    <div className="text-emerald-500">no events</div>
+                  ) : (
+                    debugLogs.map((line, idx) => (
+                      <div key={idx} className="text-emerald-300 break-words">{line}</div>
+                    ))
+                  )}
+                </div>
+              </div>
+
               {gameState === 'USER_SELECT' && <UserSelectScreen />}
               {gameState === 'MENU' && <MenuScreen />}
               {gameState === 'GAMEOVER' && <GameOverScreen />}
               {gameState === 'VOCAB_MANAGER' && <VocabularyManagerScreen />}
+
+              {statOverlayUrl && (
+                <div className="fixed inset-0 z-[120] bg-black/65 backdrop-blur-sm flex items-center justify-center p-4">
+                  <div className="w-[min(96vw,1200px)] h-[min(92vh,860px)] bg-gray-950 border border-cyan-700/50 rounded-2xl shadow-2xl overflow-hidden flex flex-col">
+                    <div className="flex items-center justify-between px-4 py-3 bg-gray-900 border-b border-gray-800">
+                      <div className="text-sm text-cyan-300 font-bold">本局統計 (鎖定視窗)</div>
+                      <button
+                        onClick={closeStatOverlay}
+                        className="px-3 py-1.5 bg-gray-800 hover:bg-gray-700 rounded-lg border border-gray-700 text-sm"
+                      >
+                        關閉
+                      </button>
+                    </div>
+                    <iframe
+                      title="Vocabris Stat Overlay"
+                      src={statOverlayUrl}
+                      className="w-full flex-1 bg-gray-950"
+                    />
+                  </div>
+                </div>
+              )}
 
               {/* Main Game Layout - Single Column */}
               <div className="w-full max-w-4xl min-h-screen flex flex-col gap-4 p-4">
@@ -1798,7 +2158,7 @@
     <script>
       if ('serviceWorker' in navigator) {
         window.addEventListener('load', () => {
-          const swUrl = '/service-worker.js?v=20260306-2';
+          const swUrl = '/service-worker.js?v=20260319-1';
           navigator.serviceWorker.register(swUrl)
             .then((registration) => {
               console.log('✅ Service Worker 註冊成功:', registration.scope);

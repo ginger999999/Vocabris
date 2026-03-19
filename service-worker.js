@@ -1,4 +1,4 @@
-const CACHE_NAME = 'vocabris-v3';
+const CACHE_NAME = 'vocabris-v4';
 const urlsToCache = [
   '/',
   '/index.html',

@@ -31,19 +31,19 @@
             <div class="bg-gray-50 p-6 rounded-xl border-2 border-gray-200">
                 <h2 class="text-xl font-bold text-gray-800 mb-4 flex items-center gap-2">
                     <span class="bg-blue-600 text-white w-8 h-8 rounded-full flex items-center justify-center text-sm">1</span>
-                    輸入新 CSV 檔案名稱 | Enter New CSV Filename
+                    輸入或自動帶入 CSV 檔案名稱 | Enter or Auto-fill CSV Filename
                 </h2>
                 <div class="flex items-center gap-4">
                     <input 
                         type="text" 
                         id="csvFileName" 
-                        placeholder="例如: my_custom_words"
+                        placeholder="上傳檔案後會自動帶入（可自行修改）"
                         oninput="handleFileNameInput()"
                         class="flex-1 px-4 py-3 border-2 border-gray-300 rounded-lg text-lg focus:outline-none focus:border-blue-500"
                     >
                     <span class="text-gray-600 font-medium">.csv</span>
                 </div>
-                <p class="text-sm text-gray-500 mt-2">⚠️ 如果檔名已存在，將會被覆蓋</p>
+                <p class="text-sm text-gray-500 mt-2">💡 上傳後會自動用原檔名帶入；如果檔名已存在，將會被覆蓋</p>
             </div>
 
             <!-- Step 2: Select Difficulty Level -->
@@ -71,11 +71,11 @@
                         <div class="border-2 border-dashed border-gray-400 hover:border-green-500 rounded-lg p-8 text-center transition-all">
                             <div class="text-5xl mb-2">📄</div>
                             <p class="text-gray-600 font-medium">點擊選擇檔案</p>
-                            <p class="text-sm text-gray-400 mt-1">支援 .json, .js, .txt 格式</p>
+                            <p class="text-sm text-gray-400 mt-1">支援 .json, .csv, .txt 格式（上傳後會自動帶入步驟1檔名）</p>
                             <p id="uploadedFileName" class="text-sm text-green-600 font-bold mt-2"></p>
                         </div>
                     </label>
-                    <input type="file" id="fileUpload" accept=".json,.js,.txt" class="hidden" onchange="handleFileSelect(event)">
+                    <input type="file" id="fileUpload" accept=".json,.csv,.txt" class="hidden" onchange="handleFileSelect(event)">
                 </div>
             </div>
 
@@ -168,6 +168,10 @@
             
             if (selectedFile) {
                 uploadedFileName.textContent = `已選擇: ${selectedFile.name}`;
+                const defaultName = selectedFile.name.replace(/\.[^/.]+$/, '');
+                if (defaultName) {
+                    csvFileName.value = defaultName;
+                }
                 
                 // Check if we can enable buttons
                 const canProcess = selectedFile && csvFileName.value.trim();
@@ -280,25 +284,20 @@
             let rawText = '';
             
             if (fileExtension === 'json') {
-                rawText = await file.text();
+                rawText = await readTextWithEncodingFallback(file);
                 const jsonData = JSON.parse(rawText);
                 return {
                     words: parseJSONFormat(jsonData),
                     rawText: rawText
                 };
-            } else if (fileExtension === 'js') {
-                rawText = await file.text();
-                const jsonMatch = rawText.match(/=\s*(\{[\s\S]*\}|\[[\s\S]*\])/);
-                if (jsonMatch) {
-                    const jsonData = eval('(' + jsonMatch[1] + ')');
-                    return {
-                        words: parseJSONFormat(jsonData),
-                        rawText: rawText
-                    };
-                }
-                throw new Error('無法從 JS 檔案中解析單字資料');
+            } else if (fileExtension === 'csv') {
+                rawText = await readTextWithEncodingFallback(file);
+                return {
+                    words: parseCSVFormat(rawText),
+                    rawText: rawText
+                };
             } else if (fileExtension === 'txt') {
-                rawText = await file.text();
+                rawText = await readTextWithEncodingFallback(file);
                 return {
                     words: parseTextFormat(rawText),
                     rawText: rawText
@@ -306,6 +305,33 @@
             } else {
                 throw new Error('不支援的檔案格式');
             }
+        }
+
+        async function readTextWithEncodingFallback(file) {
+            const buffer = await file.arrayBuffer();
+            const bytes = new Uint8Array(buffer);
+            const utf8Text = new TextDecoder('utf-8').decode(bytes);
+            let bestText = utf8Text;
+            let bestScore = countReplacementChars(utf8Text);
+
+            // Many local vocab files are saved as Big5; prefer decode with fewer replacement chars.
+            try {
+                const big5Text = new TextDecoder('big5').decode(bytes);
+                const big5Score = countReplacementChars(big5Text);
+                if (big5Score < bestScore) {
+                    bestText = big5Text;
+                    bestScore = big5Score;
+                }
+            } catch (error) {
+                // Ignore unsupported encoding and keep UTF-8 result.
+            }
+
+            return bestText;
+        }
+
+        function countReplacementChars(text) {
+            const match = String(text || '').match(/\uFFFD/g);
+            return match ? match.length : 0;
         }
 
         function parseJSONFormat(data) {
@@ -316,7 +342,7 @@
                         words.push({
                             word: item.word.toUpperCase(),
                             meaning: item.meaning,
-                            options: item.options || generateDummyOptions(item.meaning)
+                            options: getRawOptions(item)
                         });
                     }
                 });
@@ -328,13 +354,97 @@
                                 words.push({
                                     word: item.word.toUpperCase(),
                                     meaning: item.meaning,
-                                    options: item.options || generateDummyOptions(item.meaning)
+                                    options: getRawOptions(item)
                                 });
                             }
                         });
                     }
                 });
             }
+
+            const allMeanings = words.map(item => String(item.meaning || '').trim()).filter(Boolean);
+            words.forEach(item => {
+                item.options = normalizeOptions(item.options, item.meaning, allMeanings);
+            });
+
+            return words;
+        }
+
+        function getRawOptions(item) {
+            if (Array.isArray(item.options)) {
+                return item.options;
+            }
+            return [item.option1, item.option2, item.option3];
+        }
+
+        function normalizeOptions(rawOptions, correctMeaning, allMeanings) {
+            const options = Array.isArray(rawOptions)
+                ? rawOptions.map(opt => String(opt || '').trim()).filter(Boolean)
+                : [];
+
+            const uniqueOptions = [];
+            options.forEach(opt => {
+                if (opt !== correctMeaning && !uniqueOptions.includes(opt)) {
+                    uniqueOptions.push(opt);
+                }
+            });
+
+            if (uniqueOptions.length < 3) {
+                const randomMeanings = pickRandomMeaningsFromPool(allMeanings, correctMeaning, uniqueOptions);
+                randomMeanings.forEach(opt => {
+                    if (uniqueOptions.length < 3 && !uniqueOptions.includes(opt)) {
+                        uniqueOptions.push(opt);
+                    }
+                });
+            }
+
+            while (uniqueOptions.length < 3) {
+                uniqueOptions.push(`其他意思${String.fromCharCode(65 + uniqueOptions.length)}`);
+            }
+
+            return uniqueOptions.slice(0, 3);
+        }
+
+        function pickRandomMeaningsFromPool(allMeanings, correctMeaning, existingOptions) {
+            const pool = allMeanings
+                .map(meaning => String(meaning || '').trim())
+                .filter(Boolean)
+                .filter(meaning => meaning !== correctMeaning && !existingOptions.includes(meaning));
+
+            const uniquePool = [...new Set(pool)];
+            for (let i = uniquePool.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [uniquePool[i], uniquePool[j]] = [uniquePool[j], uniquePool[i]];
+            }
+            return uniquePool;
+        }
+
+        function parseCSVFormat(text) {
+            const lines = text.split('\n').map(line => line.trim()).filter(Boolean);
+            if (!lines.length) return [];
+
+            const words = [];
+            const hasHeader = /^word\s*,\s*meaning/i.test(lines[0]) || /^單字\s*,\s*中文釋義/.test(lines[0]);
+            const startIndex = hasHeader ? 1 : 0;
+
+            for (let i = startIndex; i < lines.length; i++) {
+                const cols = lines[i].split(',').map(col => String(col || '').trim());
+                const word = cols[0] || '';
+                const meaning = cols[1] || '';
+                if (!word || !meaning) continue;
+
+                words.push({
+                    word: word.toUpperCase(),
+                    meaning: meaning,
+                    options: [cols[2], cols[3], cols[4]]
+                });
+            }
+
+            const allMeanings = words.map(item => String(item.meaning || '').trim()).filter(Boolean);
+            words.forEach(item => {
+                item.options = normalizeOptions(item.options, item.meaning, allMeanings);
+            });
+
             return words;
         }
 
@@ -345,6 +455,25 @@
             for (let i = 0; i < lines.length; i++) {
                 let line = lines[i].trim();
                 if (!line) continue;
+
+                // Support tab-separated rows: word\tmeaning\toption1\toption2\toption3
+                if (line.includes('\t')) {
+                    const cols = line.split('\t').map(col => String(col || '').trim());
+                    const wordCol = cols[0] || '';
+                    const meaningCol = cols[1] || '';
+
+                    // Skip header-like row
+                    if (/^word$/i.test(wordCol)) continue;
+
+                    if (wordCol && meaningCol && /^[a-zA-Z][a-zA-Z\-\s']*$/.test(wordCol)) {
+                        words.push({
+                            word: wordCol.toUpperCase(),
+                            meaning: meaningCol,
+                            options: [cols[2], cols[3], cols[4]]
+                        });
+                        continue;
+                    }
+                }
                 if (line.match(/^(主題|教育部|規定|必背)/)) continue;
                 
                 const multiWordPattern = /(\d+)\s+([a-zA-Z][a-zA-Z\-]+)\s+([\u4e00-\u9fa5][^\d]*?)(?=\s+\d+|$)/g;
@@ -415,8 +544,14 @@
                     uniqueWords[w.word] = w;
                 }
             });
-            
-            return Object.values(uniqueWords);
+
+            const normalizedWords = Object.values(uniqueWords);
+            const allMeanings = normalizedWords.map(item => String(item.meaning || '').trim()).filter(Boolean);
+            normalizedWords.forEach(item => {
+                item.options = normalizeOptions(item.options, item.meaning, allMeanings);
+            });
+
+            return normalizedWords;
         }
 
         function generateDummyOptions(correctMeaning) {
@@ -500,6 +635,10 @@
                 if (selectedFile) {
                     console.log('File selected:', selectedFile.name);
                     uploadedFileName.textContent = `已選擇: ${selectedFile.name}`;
+                    const defaultName = selectedFile.name.replace(/\.[^/.]+$/, '');
+                    if (defaultName) {
+                        csvFileName.value = defaultName;
+                    }
                     checkEnableButtons();
                 } else {
                     console.log('No file selected');
@@ -647,28 +786,21 @@
                 
                 if (fileExtension === 'json') {
                     // Parse JSON file
-                    rawText = await file.text();
+                    rawText = await readTextWithEncodingFallback(file);
                     const jsonData = JSON.parse(rawText);
                     return {
                         words: parseJSONFormat(jsonData),
                         rawText: rawText
                     };
-                } else if (fileExtension === 'js') {
-                    // Parse JS file (expect WORD_DATABASE format or array)
-                    rawText = await file.text();
-                    // Try to extract JSON-like structure
-                    const jsonMatch = rawText.match(/=\s*(\{[\s\S]*\}|\[[\s\S]*\])/);
-                    if (jsonMatch) {
-                        const jsonData = eval('(' + jsonMatch[1] + ')');
-                        return {
-                            words: parseJSONFormat(jsonData),
-                            rawText: rawText
-                        };
-                    }
-                    throw new Error('無法從 JS 檔案中解析單字資料');
+                } else if (fileExtension === 'csv') {
+                    rawText = await readTextWithEncodingFallback(file);
+                    return {
+                        words: parseCSVFormat(rawText),
+                        rawText: rawText
+                    };
                 } else if (fileExtension === 'txt') {
                     // Parse plain text file
-                    rawText = await file.text();
+                    rawText = await readTextWithEncodingFallback(file);
                     return {
                         words: parseTextFormat(rawText),
                         rawText: rawText
@@ -676,6 +808,33 @@
                 } else {
                     throw new Error('不支援的檔案格式');
                 }
+            }
+
+            async function readTextWithEncodingFallback(file) {
+                const buffer = await file.arrayBuffer();
+                const bytes = new Uint8Array(buffer);
+                const utf8Text = new TextDecoder('utf-8').decode(bytes);
+                let bestText = utf8Text;
+                let bestScore = countReplacementChars(utf8Text);
+
+                // Many local vocab files are saved as Big5; prefer decode with fewer replacement chars.
+                try {
+                    const big5Text = new TextDecoder('big5').decode(bytes);
+                    const big5Score = countReplacementChars(big5Text);
+                    if (big5Score < bestScore) {
+                        bestText = big5Text;
+                        bestScore = big5Score;
+                    }
+                } catch (error) {
+                    // Ignore unsupported encoding and keep UTF-8 result.
+                }
+
+                return bestText;
+            }
+
+            function countReplacementChars(text) {
+                const match = String(text || '').match(/\uFFFD/g);
+                return match ? match.length : 0;
             }
 
             function parseJSONFormat(data) {
@@ -689,7 +848,7 @@
                             words.push({
                                 word: item.word.toUpperCase(),
                                 meaning: item.meaning,
-                                options: item.options || generateDummyOptions(item.meaning)
+                                options: getRawOptions(item)
                             });
                         }
                     });
@@ -702,14 +861,97 @@
                                     words.push({
                                         word: item.word.toUpperCase(),
                                         meaning: item.meaning,
-                                        options: item.options || generateDummyOptions(item.meaning)
+                                        options: getRawOptions(item)
                                     });
                                 }
                             });
                         }
                     });
                 }
+
+                const allMeanings = words.map(item => String(item.meaning || '').trim()).filter(Boolean);
+                words.forEach(item => {
+                    item.options = normalizeOptions(item.options, item.meaning, allMeanings);
+                });
                 
+                return words;
+            }
+
+            function getRawOptions(item) {
+                if (Array.isArray(item.options)) {
+                    return item.options;
+                }
+                return [item.option1, item.option2, item.option3];
+            }
+
+            function normalizeOptions(rawOptions, correctMeaning, allMeanings) {
+                const options = Array.isArray(rawOptions)
+                    ? rawOptions.map(opt => String(opt || '').trim()).filter(Boolean)
+                    : [];
+
+                const uniqueOptions = [];
+                options.forEach(opt => {
+                    if (opt !== correctMeaning && !uniqueOptions.includes(opt)) {
+                        uniqueOptions.push(opt);
+                    }
+                });
+
+                if (uniqueOptions.length < 3) {
+                    const randomMeanings = pickRandomMeaningsFromPool(allMeanings, correctMeaning, uniqueOptions);
+                    randomMeanings.forEach(opt => {
+                        if (uniqueOptions.length < 3 && !uniqueOptions.includes(opt)) {
+                            uniqueOptions.push(opt);
+                        }
+                    });
+                }
+
+                while (uniqueOptions.length < 3) {
+                    uniqueOptions.push(`其他意思${String.fromCharCode(65 + uniqueOptions.length)}`);
+                }
+
+                return uniqueOptions.slice(0, 3);
+            }
+
+            function pickRandomMeaningsFromPool(allMeanings, correctMeaning, existingOptions) {
+                const pool = allMeanings
+                    .map(meaning => String(meaning || '').trim())
+                    .filter(Boolean)
+                    .filter(meaning => meaning !== correctMeaning && !existingOptions.includes(meaning));
+
+                const uniquePool = [...new Set(pool)];
+                for (let i = uniquePool.length - 1; i > 0; i--) {
+                    const j = Math.floor(Math.random() * (i + 1));
+                    [uniquePool[i], uniquePool[j]] = [uniquePool[j], uniquePool[i]];
+                }
+                return uniquePool;
+            }
+
+            function parseCSVFormat(text) {
+                const lines = text.split('\n').map(line => line.trim()).filter(Boolean);
+                if (!lines.length) return [];
+
+                const words = [];
+                const hasHeader = /^word\s*,\s*meaning/i.test(lines[0]) || /^單字\s*,\s*中文釋義/.test(lines[0]);
+                const startIndex = hasHeader ? 1 : 0;
+
+                for (let i = startIndex; i < lines.length; i++) {
+                    const cols = lines[i].split(',').map(col => String(col || '').trim());
+                    const word = cols[0] || '';
+                    const meaning = cols[1] || '';
+                    if (!word || !meaning) continue;
+
+                    words.push({
+                        word: word.toUpperCase(),
+                        meaning: meaning,
+                        options: [cols[2], cols[3], cols[4]]
+                    });
+                }
+
+                const allMeanings = words.map(item => String(item.meaning || '').trim()).filter(Boolean);
+                words.forEach(item => {
+                    item.options = normalizeOptions(item.options, item.meaning, allMeanings);
+                });
+
                 return words;
             }
 
@@ -720,6 +962,25 @@
                 for (let i = 0; i < lines.length; i++) {
                     let line = lines[i].trim();
                     if (!line) continue;
+
+                    // Support tab-separated rows: word\tmeaning\toption1\toption2\toption3
+                    if (line.includes('\t')) {
+                        const cols = line.split('\t').map(col => String(col || '').trim());
+                        const wordCol = cols[0] || '';
+                        const meaningCol = cols[1] || '';
+
+                        // Skip header-like row
+                        if (/^word$/i.test(wordCol)) continue;
+
+                        if (wordCol && meaningCol && /^[a-zA-Z][a-zA-Z\-\s']*$/.test(wordCol)) {
+                            words.push({
+                                word: wordCol.toUpperCase(),
+                                meaning: meaningCol,
+                                options: [cols[2], cols[3], cols[4]]
+                            });
+                            continue;
+                        }
+                    }
                 
                 // 跳過標題行
                 if (line.match(/^(主題|教育部|規定|必背)/)) continue;
@@ -797,9 +1058,15 @@
                     uniqueWords[w.word] = w;
                 }
             });
-            
+
+            const normalizedWords = Object.values(uniqueWords);
+            const allMeanings = normalizedWords.map(item => String(item.meaning || '').trim()).filter(Boolean);
+            normalizedWords.forEach(item => {
+                item.options = normalizeOptions(item.options, item.meaning, allMeanings);
+            });
+
             console.log(`Parsed ${Object.keys(uniqueWords).length} unique words from ${words.length} total matches`);
-                return Object.values(uniqueWords);
+                return normalizedWords;
             }
 
             function generateDummyOptions(correctMeaning) {

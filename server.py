@@ -26,8 +26,25 @@ class VocabrisHandler(SimpleHTTPRequestHandler):
                 self.wfile.write(b'{"error": "Missing user or level"}')
                 return
             
-            # 更新 CSV 檔案
-            csv_file = f'{level}_words.csv'
+            # 讀取配置後決定目前級別實際使用的 CSV
+            config_file = 'csv_config.json'
+            if os.path.exists(config_file):
+                with open(config_file, 'r', encoding='utf-8') as f:
+                    config = json.load(f)
+            else:
+                config = {
+                    'elementary': 'elementary_words.csv',
+                    'intermediate': 'intermediate_words.csv',
+                    'advanced': 'advanced_words.csv'
+                }
+
+            csv_file = config.get(level)
+            if not csv_file:
+                self.send_response(400)
+                self.end_headers()
+                self.wfile.write(b'{"error": "Invalid level"}')
+                return
+
             if not os.path.exists(csv_file):
                 self.send_response(404)
                 self.end_headers()
@@ -304,6 +321,68 @@ class VocabrisHandler(SimpleHTTPRequestHandler):
                 self.send_response(500)
                 self.end_headers()
                 self.wfile.write(json.dumps({"error": str(e)}).encode())
+
+        elif self.path == '/api/delete-csv':
+            content_length = int(self.headers['Content-Length'])
+            post_data = self.rfile.read(content_length)
+            data = json.loads(post_data.decode('utf-8'))
+
+            filename = data.get('filename', '')
+            filename = os.path.basename(filename)
+
+            if not filename or not filename.endswith('.csv'):
+                self.send_response(400)
+                self.end_headers()
+                self.wfile.write(b'{"error": "Invalid filename"}')
+                return
+
+            if filename != data.get('filename', ''):
+                self.send_response(400)
+                self.end_headers()
+                self.wfile.write(b'{"error": "Invalid path"}')
+                return
+
+            config_file = 'csv_config.json'
+            if os.path.exists(config_file):
+                with open(config_file, 'r', encoding='utf-8') as f:
+                    config = json.load(f)
+            else:
+                config = {
+                    'elementary': 'elementary_words.csv',
+                    'intermediate': 'intermediate_words.csv',
+                    'advanced': 'advanced_words.csv'
+                }
+
+            in_use_files = set(config.values())
+            if filename in in_use_files:
+                self.send_response(400)
+                self.end_headers()
+                self.wfile.write(json.dumps({"error": f"File is currently in use: {filename}"}).encode())
+                return
+
+            if not os.path.exists(filename):
+                self.send_response(404)
+                self.end_headers()
+                self.wfile.write(b'{"error": "File not found"}')
+                return
+
+            try:
+                os.remove(filename)
+                print(f'Deleted CSV file: {filename}')
+
+                self.send_response(200)
+                self.send_header('Content-type', 'application/json')
+                self.send_header('Access-Control-Allow-Origin', '*')
+                self.end_headers()
+                self.wfile.write(json.dumps({
+                    "success": True,
+                    "message": f"Deleted {filename}"
+                }).encode())
+            except Exception as e:
+                print(f'Error deleting CSV: {e}')
+                self.send_response(500)
+                self.end_headers()
+                self.wfile.write(json.dumps({"error": str(e)}).encode())
         
         else:
             self.send_response(404)
@@ -327,6 +406,67 @@ class VocabrisHandler(SimpleHTTPRequestHandler):
                 self.end_headers()
                 self.wfile.write(json.dumps(result).encode())
                 
+            except Exception as e:
+                self.send_response(500)
+                self.end_headers()
+                self.wfile.write(json.dumps({"error": str(e)}).encode())
+
+        elif self.path.startswith('/api/get-level-words'):
+            try:
+                parsed = urlparse(self.path)
+                params = parse_qs(parsed.query)
+                level = (params.get('level') or ['elementary'])[0]
+
+                if level not in ['elementary', 'intermediate', 'advanced']:
+                    self.send_response(400)
+                    self.end_headers()
+                    self.wfile.write(b'{"error": "Invalid level"}')
+                    return
+
+                config_file = 'csv_config.json'
+                if os.path.exists(config_file):
+                    with open(config_file, 'r', encoding='utf-8') as f:
+                        config = json.load(f)
+                else:
+                    config = {
+                        'elementary': 'elementary_words.csv',
+                        'intermediate': 'intermediate_words.csv',
+                        'advanced': 'advanced_words.csv'
+                    }
+
+                csv_file = config.get(level)
+                if not csv_file or not os.path.exists(csv_file):
+                    self.send_response(404)
+                    self.end_headers()
+                    self.wfile.write(b'{"error": "CSV file not found"}')
+                    return
+
+                words = []
+                with open(csv_file, 'r', encoding='utf-8') as f:
+                    reader = csv.DictReader(f)
+                    for row in reader:
+                        words.append({
+                            'word': row.get('word', ''),
+                            'meaning': row.get('meaning', ''),
+                            'option1': row.get('option1', ''),
+                            'option2': row.get('option2', ''),
+                            'option3': row.get('option3', ''),
+                            'Ginger': row.get('Ginger', '0'),
+                            'River': row.get('River', '0'),
+                            'Sigma': row.get('Sigma', '0')
+                        })
+
+                self.send_response(200)
+                self.send_header('Content-type', 'application/json')
+                self.send_header('Access-Control-Allow-Origin', '*')
+                self.end_headers()
+                self.wfile.write(json.dumps({
+                    'level': level,
+                    'source': csv_file,
+                    'count': len(words),
+                    'words': words
+                }, ensure_ascii=False).encode('utf-8'))
+
             except Exception as e:
                 self.send_response(500)
                 self.end_headers()

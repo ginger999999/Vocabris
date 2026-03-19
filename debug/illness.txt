@@ -1,0 +1,30 @@
+單字	中文釋義	選項1	選項2	選項3
+one	一			
+two	二			
+three	三			
+four	四			
+five	五			
+six	六			
+seven	七			
+eight	八			
+nine	九			
+ten	十			
+hundred	百			
+throusand	千			
+eyes	眼睛			
+ears	耳朵			
+nose	鼻子			
+mouth	嘴巴			
+hands	手			
+arms	手臂			
+legs	雙腿			
+foot	腳			
+feet	雙腳			
+cold	冷			
+fever	發燒			
+runny nose	流鼻水			
+sore throat	喉嚨痛			
+headache	頭痛			
+toothache	牙痛			
+stimachache	胃痛			
+hurt	受傷			
