@@ -1,5 +1,5 @@
 {
-  "elementary": "EATING.csv",
+  "elementary": "illness.csv",
   "intermediate": "intermediate_words.csv",
   "advanced": "advanced_words.csv"
 }

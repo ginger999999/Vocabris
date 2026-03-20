@@ -2,10 +2,16 @@ import csv
 import json
 import os
 
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
+
+def project_path(*parts):
+    return os.path.join(BASE_DIR, *parts)
+
 def csv_to_json(csv_file):
     """讀取 CSV 並轉換為單字列表"""
     words = []
-    with open(csv_file, 'r', encoding='utf-8') as f:
+    with open(project_path(csv_file), 'r', encoding='utf-8') as f:
         reader = csv.DictReader(f)
         for row in reader:
             words.append({
@@ -19,11 +25,11 @@ def csv_to_json(csv_file):
     return words
 
 # 讀取配置文件
-config_file = 'csv_config.json'
+config_file = project_path('csv_config.json')
 if os.path.exists(config_file):
     with open(config_file, 'r', encoding='utf-8') as f:
         config = json.load(f)
-    print(f"✓ 使用配置文件: {config_file}")
+    print("✓ 使用配置文件: csv_config.json")
 else:
     # 默認配置
     config = {
@@ -46,7 +52,7 @@ vocabulary_db = {
 }
 
 # 寫入 JSON 檔案
-with open('vocabulary.json', 'w', encoding='utf-8') as f:
+with open(project_path('vocabulary.json'), 'w', encoding='utf-8') as f:
     json.dump(vocabulary_db, f, ensure_ascii=False, indent=2)
 
 print(f"✓ 成功生成 vocabulary.json")

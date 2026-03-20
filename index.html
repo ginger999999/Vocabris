@@ -339,6 +339,7 @@
             lastSyncAt: '-'
           });
           const [debugLogs, setDebugLogs] = useState([]);
+          const [showDebugPanel, setShowDebugPanel] = useState(false);
           const [csvConfig, setCsvConfig] = useState({
             elementary: 'elementary_words.csv',
             intermediate: 'intermediate_words.csv',
@@ -430,6 +431,137 @@
                 setVocabularyLoaded(true);
               });
           }, []);
+
+          const mapApiWordToGameWord = useCallback((row) => {
+            const options = [row.option1, row.option2, row.option3]
+              .map((opt) => (opt || '').trim())
+              .filter(Boolean);
+            return {
+              word: row.word,
+              meaning: row.meaning,
+              options,
+              Ginger: row.Ginger || '0',
+              River: row.River || '0',
+              Sigma: row.Sigma || '0'
+            };
+          }, []);
+
+          const parseCsvRow = useCallback((line) => {
+            const values = [];
+            let current = '';
+            let inQuotes = false;
+
+            for (let i = 0; i < line.length; i++) {
+              const char = line[i];
+              if (char === '"') {
+                if (inQuotes && line[i + 1] === '"') {
+                  current += '"';
+                  i++;
+                } else {
+                  inQuotes = !inQuotes;
+                }
+              } else if (char === ',' && !inQuotes) {
+                values.push(current);
+                current = '';
+              } else {
+                current += char;
+              }
+            }
+
+            values.push(current);
+            return values;
+          }, []);
+
+          const loadLevelWordsFromCsvFallback = useCallback(async (targetLevel) => {
+            const ts = Date.now();
+            let sourceFile = `${targetLevel}_words.csv`;
+
+            try {
+              const cfgRes = await fetch(`/api/get-csv-config?t=${ts}`, { cache: 'no-store' });
+              if (cfgRes.ok) {
+                const cfgData = await cfgRes.json();
+                sourceFile = (cfgData && cfgData[targetLevel]) || sourceFile;
+                setCsvConfig((prev) => ({ ...prev, [targetLevel]: sourceFile }));
+              }
+            } catch (err) {
+              console.warn('CSV fallback: failed to load config API, use default source.', err);
+            }
+
+            const csvRes = await fetch(`/${sourceFile}?t=${Date.now()}`, { cache: 'no-store' });
+            if (!csvRes.ok) {
+              throw new Error(`CSV fallback failed: ${csvRes.status}`);
+            }
+
+            const csvText = await csvRes.text();
+            const lines = csvText.split(/\r?\n/).filter((line) => line.trim() !== '');
+            if (lines.length <= 1) {
+              throw new Error('CSV fallback failed: empty data');
+            }
+
+            const headers = parseCsvRow(lines[0]);
+            const indexMap = {};
+            headers.forEach((header, idx) => {
+              indexMap[header] = idx;
+            });
+
+            const words = [];
+            for (let i = 1; i < lines.length; i++) {
+              const cols = parseCsvRow(lines[i]);
+              const word = (cols[indexMap.word] || '').trim();
+              const meaning = (cols[indexMap.meaning] || '').trim();
+              if (!word || !meaning) continue;
+
+              const options = [
+                cols[indexMap.option1] || '',
+                cols[indexMap.option2] || '',
+                cols[indexMap.option3] || ''
+              ].map((opt) => opt.trim()).filter(Boolean);
+
+              words.push({
+                word,
+                meaning,
+                options,
+                Ginger: (cols[indexMap.Ginger] || '0').trim() || '0',
+                River: (cols[indexMap.River] || '0').trim() || '0',
+                Sigma: (cols[indexMap.Sigma] || '0').trim() || '0'
+              });
+            }
+
+            if (words.length > 0) {
+              WORD_DATABASE[targetLevel] = words;
+            }
+            return words;
+          }, [parseCsvRow]);
+
+          const refreshLevelWords = useCallback(async (targetLevel) => {
+            const ts = Date.now();
+            try {
+              const response = await fetch(`/api/get-level-words?level=${encodeURIComponent(targetLevel)}&t=${ts}`, {
+                cache: 'no-store'
+              });
+              if (!response.ok) {
+                throw new Error(`Failed to load level words from API: ${response.status}`);
+              }
+
+              const data = await response.json();
+              const mappedWords = (data.words || []).map(mapApiWordToGameWord);
+              if (mappedWords.length > 0) {
+                WORD_DATABASE[targetLevel] = mappedWords;
+              }
+
+              if (data && data.source) {
+                setCsvConfig((prev) => ({
+                  ...prev,
+                  [targetLevel]: data.source
+                }));
+              }
+
+              return mappedWords;
+            } catch (apiErr) {
+              console.warn('Level words API unavailable, switching to CSV fallback:', apiErr);
+              return loadLevelWordsFromCsvFallback(targetLevel);
+            }
+          }, [loadLevelWordsFromCsvFallback, mapApiWordToGameWord]);
 
           // Load active CSV config for source-aware session tracking.
           useEffect(() => {
@@ -738,7 +870,13 @@
 
           // --- Game Loop Logic ---
 
-          const startGame = () => {
+          const startGame = async () => {
+            try {
+              await refreshLevelWords(level);
+            } catch (error) {
+              console.warn('Failed to refresh level words from API, fallback to current in-memory database:', error);
+            }
+
             setGrid(Array(GRID_ROWS).fill().map(() => Array(GRID_COLS).fill(null)));
             setScore(0);
             setGameState('PLAYING');
@@ -1496,8 +1634,42 @@
                 
                 const result = await response.json();
                 if (response.ok) {
-                  alert('切換成功！請重新載入頁面查看新資料。\nSwitched successfully! Please reload the page.');
-                  window.location.reload();
+                  setCurrentCsvConfig((prev) => ({ ...prev, [editingLevel]: selectedCsvFile }));
+                  setCsvConfig((prev) => ({ ...prev, [editingLevel]: selectedCsvFile }));
+                  try {
+                    const ts = Date.now();
+                    const levelRes = await fetch(`/api/get-level-words?level=${encodeURIComponent(editingLevel)}&t=${ts}`, {
+                      cache: 'no-store'
+                    });
+                    if (levelRes.ok) {
+                      const levelData = await levelRes.json();
+                      const words = (levelData.words || []).map((row) => ({
+                        word: row.word,
+                        meaning: row.meaning,
+                        options: [row.option1, row.option2, row.option3].map((opt) => (opt || '').trim()).filter(Boolean),
+                        Ginger: row.Ginger || '0',
+                        River: row.River || '0',
+                        Sigma: row.Sigma || '0'
+                      }));
+                      if (words.length > 0) {
+                        WORD_DATABASE[editingLevel] = words;
+                        if (currentUser) {
+                          setWordScores((prev) => {
+                            const next = { ...prev };
+                            words.forEach((w) => {
+                              const userScore = parseInt(w[currentUser] || '0', 10);
+                              next[w.word] = Number.isNaN(userScore) ? 0 : userScore;
+                            });
+                            return next;
+                          });
+                        }
+                      }
+                    }
+                  } catch (loadErr) {
+                    console.warn('Switch succeeded but failed to refresh level words:', loadErr);
+                  }
+
+                  alert('切換成功！資料已更新，回主選單後可直接開始新局。\nSwitched successfully! Data updated for new games.');
                 } else {
                   alert('切換失敗: ' + (result.error || 'Unknown error'));
                 }
@@ -1987,23 +2159,44 @@
                 {UI_VERSION}
               </div>
 
-              <div className="fixed bottom-2 right-2 z-[110] w-[min(92vw,360px)] bg-black/80 border border-emerald-700/60 rounded-lg p-3 text-[11px] font-mono text-emerald-200 backdrop-blur-sm">
-                <div className="font-bold text-emerald-300 mb-1">Debug Panel</div>
-                <div>user: {currentUser || '-'}</div>
-                <div>level/source: {level} / {getCurrentSourceFile(level)}</div>
-                <div>lastAction: {debugState.lastAction}</div>
-                <div>lastWord: {debugState.lastWord} ({debugState.lastDelta >= 0 ? '+' : ''}{debugState.lastDelta})</div>
-                <div>sync: {debugState.lastSync} ({debugState.lastSyncLevel}) @ {debugState.lastSyncAt}</div>
-                <div className="mt-1 border-t border-emerald-700/40 pt-1 max-h-24 overflow-y-auto space-y-1">
-                  {debugLogs.length === 0 ? (
-                    <div className="text-emerald-500">no events</div>
-                  ) : (
-                    debugLogs.map((line, idx) => (
-                      <div key={idx} className="text-emerald-300 break-words">{line}</div>
-                    ))
-                  )}
+              <button
+                type="button"
+                onClick={() => setShowDebugPanel((prev) => !prev)}
+                className="fixed bottom-2 right-2 z-[110] px-2 py-1 rounded-full border border-emerald-700/50 bg-black/60 text-[10px] font-mono text-emerald-300 hover:bg-black/80"
+                title={showDebugPanel ? 'Hide Debug Panel' : 'Show Debug Panel'}
+              >
+                DBG
+              </button>
+
+              {showDebugPanel && (
+                <div className="fixed bottom-11 right-2 z-[110] w-[min(92vw,360px)] bg-black/80 border border-emerald-700/60 rounded-lg p-3 text-[11px] font-mono text-emerald-200 backdrop-blur-sm">
+                  <div className="flex items-center justify-between mb-1">
+                    <div className="font-bold text-emerald-300">Debug Panel</div>
+                    <button
+                      type="button"
+                      onClick={() => setShowDebugPanel(false)}
+                      className="px-1.5 py-0.5 text-[10px] rounded border border-emerald-700/60 hover:bg-emerald-900/30"
+                      title="Close Debug Panel"
+                    >
+                      x
+                    </button>
+                  </div>
+                  <div>user: {currentUser || '-'}</div>
+                  <div>level/source: {level} / {getCurrentSourceFile(level)}</div>
+                  <div>lastAction: {debugState.lastAction}</div>
+                  <div>lastWord: {debugState.lastWord} ({debugState.lastDelta >= 0 ? '+' : ''}{debugState.lastDelta})</div>
+                  <div>sync: {debugState.lastSync} ({debugState.lastSyncLevel}) @ {debugState.lastSyncAt}</div>
+                  <div className="mt-1 border-t border-emerald-700/40 pt-1 max-h-24 overflow-y-auto space-y-1">
+                    {debugLogs.length === 0 ? (
+                      <div className="text-emerald-500">no events</div>
+                    ) : (
+                      debugLogs.map((line, idx) => (
+                        <div key={idx} className="text-emerald-300 break-words">{line}</div>
+                      ))
+                    )}
+                  </div>
                 </div>
-              </div>
+              )}
 
               {gameState === 'USER_SELECT' && <UserSelectScreen />}
               {gameState === 'MENU' && <MenuScreen />}

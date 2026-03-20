@@ -6,7 +6,44 @@ from http.server import HTTPServer, SimpleHTTPRequestHandler
 import json
 import csv
 import os
+import subprocess
 from urllib.parse import urlparse, parse_qs
+
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+DEFAULT_CONFIG = {
+    'elementary': 'elementary_words.csv',
+    'intermediate': 'intermediate_words.csv',
+    'advanced': 'advanced_words.csv'
+}
+
+
+def project_path(*parts):
+    return os.path.join(BASE_DIR, *parts)
+
+
+def load_csv_config():
+    config_file = project_path('csv_config.json')
+    if os.path.exists(config_file):
+        with open(config_file, 'r', encoding='utf-8') as f:
+            return json.load(f)
+    return dict(DEFAULT_CONFIG)
+
+
+def save_csv_config(config):
+    config_file = project_path('csv_config.json')
+    with open(config_file, 'w', encoding='utf-8') as f:
+        json.dump(config, f, indent=2, ensure_ascii=False)
+
+
+def regenerate_vocabulary():
+    result = subprocess.run(
+        ['python3', project_path('generate_vocabulary.py')],
+        cwd=BASE_DIR,
+        capture_output=True,
+        text=True
+    )
+    if result.returncode != 0:
+        raise RuntimeError((result.stderr or result.stdout or 'generate_vocabulary.py failed').strip())
 
 class VocabrisHandler(SimpleHTTPRequestHandler):
     def do_POST(self):
@@ -27,23 +64,16 @@ class VocabrisHandler(SimpleHTTPRequestHandler):
                 return
             
             # 讀取配置後決定目前級別實際使用的 CSV
-            config_file = 'csv_config.json'
-            if os.path.exists(config_file):
-                with open(config_file, 'r', encoding='utf-8') as f:
-                    config = json.load(f)
-            else:
-                config = {
-                    'elementary': 'elementary_words.csv',
-                    'intermediate': 'intermediate_words.csv',
-                    'advanced': 'advanced_words.csv'
-                }
+            config = load_csv_config()
 
-            csv_file = config.get(level)
-            if not csv_file:
+            csv_filename = config.get(level)
+            if not csv_filename:
                 self.send_response(400)
                 self.end_headers()
                 self.wfile.write(b'{"error": "Invalid level"}')
                 return
+
+            csv_file = project_path(csv_filename)
 
             if not os.path.exists(csv_file):
                 self.send_response(404)
@@ -70,7 +100,7 @@ class VocabrisHandler(SimpleHTTPRequestHandler):
                     writer.writerows(rows)
                 
                 # 重新生成 vocabulary.json
-                os.system('python3 generate_vocabulary.py > /dev/null 2>&1')
+                regenerate_vocabulary()
                 
                 self.send_response(200)
                 self.send_header('Content-type', 'application/json')
@@ -100,19 +130,20 @@ class VocabrisHandler(SimpleHTTPRequestHandler):
             
             try:
                 # 備份原檔案
-                if os.path.exists(filename):
-                    backup_file = filename.replace('.csv', '_backup.csv')
+                file_path = project_path(filename)
+                if os.path.exists(file_path):
+                    backup_file = file_path.replace('.csv', '_backup.csv')
                     import shutil
-                    shutil.copy(filename, backup_file)
-                    print(f'Created backup: {backup_file}')
+                    shutil.copy(file_path, backup_file)
+                    print(f'Created backup: {os.path.basename(backup_file)}')
                 
                 # 寫入新的 CSV 內容
-                with open(filename, 'w', encoding='utf-8') as f:
+                with open(file_path, 'w', encoding='utf-8') as f:
                     f.write(csv_data)
                 
                 # 重新生成 vocabulary.json
                 print('Regenerating vocabulary.json...')
-                os.system('python3 generate_vocabulary.py')
+                regenerate_vocabulary()
                 
                 self.send_response(200)
                 self.send_header('Content-type', 'application/json')
@@ -147,14 +178,15 @@ class VocabrisHandler(SimpleHTTPRequestHandler):
             
             try:
                 # 寫入新的 CSV 檔案
-                with open(filename, 'w', encoding='utf-8') as f:
+                file_path = project_path(filename)
+                with open(file_path, 'w', encoding='utf-8') as f:
                     f.write(csv_data)
                 
                 print(f'Created new CSV file: {filename} for level: {level}')
                 
                 # 重新生成 vocabulary.json
                 print('Regenerating vocabulary.json...')
-                os.system('python3 generate_vocabulary.py')
+                regenerate_vocabulary()
                 
                 self.send_response(200)
                 self.send_header('Content-type', 'application/json')
@@ -188,29 +220,19 @@ class VocabrisHandler(SimpleHTTPRequestHandler):
             
             try:
                 # 讀取或創建配置文件
-                config_file = 'csv_config.json'
-                if os.path.exists(config_file):
-                    with open(config_file, 'r', encoding='utf-8') as f:
-                        config = json.load(f)
-                else:
-                    config = {
-                        'elementary': 'elementary_words.csv',
-                        'intermediate': 'intermediate_words.csv',
-                        'advanced': 'advanced_words.csv'
-                    }
+                config = load_csv_config()
                 
                 # 更新配置
                 config[target_level] = source_file
                 
                 # 儲存配置
-                with open(config_file, 'w', encoding='utf-8') as f:
-                    json.dump(config, f, indent=2, ensure_ascii=False)
+                save_csv_config(config)
                 
                 print(f'Switched {target_level} to use {source_file}')
                 
                 # 重新生成 vocabulary.json（使用新配置）
                 print('Regenerating vocabulary.json...')
-                os.system('python3 generate_vocabulary.py')
+                regenerate_vocabulary()
                 
                 self.send_response(200)
                 self.send_header('Content-type', 'application/json')
@@ -244,20 +266,13 @@ class VocabrisHandler(SimpleHTTPRequestHandler):
             
             try:
                 # 讀取配置以確定要寫入哪個 CSV 檔案
-                config_file = 'csv_config.json'
-                if os.path.exists(config_file):
-                    with open(config_file, 'r', encoding='utf-8') as f:
-                        config = json.load(f)
-                else:
-                    config = {
-                        'elementary': 'elementary_words.csv',
-                        'intermediate': 'intermediate_words.csv',
-                        'advanced': 'advanced_words.csv'
-                    }
+                config = load_csv_config()
                 
-                csv_file = config.get(level)
-                if not csv_file:
+                csv_filename = config.get(level)
+                if not csv_filename:
                     raise ValueError(f'Invalid level: {level}')
+
+                csv_file = project_path(csv_filename)
                 
                 # 讀取原始 CSV 以保留使用者進度欄位
                 user_columns = []
@@ -303,7 +318,7 @@ class VocabrisHandler(SimpleHTTPRequestHandler):
                 
                 # 重新生成 vocabulary.json
                 print('Regenerating vocabulary.json...')
-                os.system('python3 generate_vocabulary.py')
+                regenerate_vocabulary()
                 
                 self.send_response(200)
                 self.send_header('Content-type', 'application/json')
@@ -342,16 +357,7 @@ class VocabrisHandler(SimpleHTTPRequestHandler):
                 self.wfile.write(b'{"error": "Invalid path"}')
                 return
 
-            config_file = 'csv_config.json'
-            if os.path.exists(config_file):
-                with open(config_file, 'r', encoding='utf-8') as f:
-                    config = json.load(f)
-            else:
-                config = {
-                    'elementary': 'elementary_words.csv',
-                    'intermediate': 'intermediate_words.csv',
-                    'advanced': 'advanced_words.csv'
-                }
+            config = load_csv_config()
 
             in_use_files = set(config.values())
             if filename in in_use_files:
@@ -360,14 +366,15 @@ class VocabrisHandler(SimpleHTTPRequestHandler):
                 self.wfile.write(json.dumps({"error": f"File is currently in use: {filename}"}).encode())
                 return
 
-            if not os.path.exists(filename):
+            file_path = project_path(filename)
+            if not os.path.exists(file_path):
                 self.send_response(404)
                 self.end_headers()
                 self.wfile.write(b'{"error": "File not found"}')
                 return
 
             try:
-                os.remove(filename)
+                os.remove(file_path)
                 print(f'Deleted CSV file: {filename}')
 
                 self.send_response(200)
@@ -392,7 +399,10 @@ class VocabrisHandler(SimpleHTTPRequestHandler):
         if self.path == '/api/list-csv':
             # 列出所有 CSV 檔案
             try:
-                csv_files = [f for f in os.listdir('.') if f.endswith('.csv') and not f.endswith('_backup.csv')]
+                csv_files = [
+                    f for f in os.listdir(BASE_DIR)
+                    if f.endswith('.csv') and not f.endswith('_backup.csv')
+                ]
                 # 排序：_words.csv 檔案優先
                 csv_files.sort(key=lambda x: (not x.endswith('_words.csv'), x))
                 result = {
@@ -423,19 +433,11 @@ class VocabrisHandler(SimpleHTTPRequestHandler):
                     self.wfile.write(b'{"error": "Invalid level"}')
                     return
 
-                config_file = 'csv_config.json'
-                if os.path.exists(config_file):
-                    with open(config_file, 'r', encoding='utf-8') as f:
-                        config = json.load(f)
-                else:
-                    config = {
-                        'elementary': 'elementary_words.csv',
-                        'intermediate': 'intermediate_words.csv',
-                        'advanced': 'advanced_words.csv'
-                    }
+                config = load_csv_config()
 
-                csv_file = config.get(level)
-                if not csv_file or not os.path.exists(csv_file):
+                csv_filename = config.get(level)
+                csv_file = project_path(csv_filename) if csv_filename else ''
+                if not csv_filename or not os.path.exists(csv_file):
                     self.send_response(404)
                     self.end_headers()
                     self.wfile.write(b'{"error": "CSV file not found"}')
@@ -462,7 +464,7 @@ class VocabrisHandler(SimpleHTTPRequestHandler):
                 self.end_headers()
                 self.wfile.write(json.dumps({
                     'level': level,
-                    'source': csv_file,
+                    'source': csv_filename,
                     'count': len(words),
                     'words': words
                 }, ensure_ascii=False).encode('utf-8'))
@@ -475,16 +477,7 @@ class VocabrisHandler(SimpleHTTPRequestHandler):
         elif self.path == '/api/get-csv-config':
             # 獲取當前 CSV 配置
             try:
-                config_file = 'csv_config.json'
-                if os.path.exists(config_file):
-                    with open(config_file, 'r', encoding='utf-8') as f:
-                        config = json.load(f)
-                else:
-                    config = {
-                        'elementary': 'elementary_words.csv',
-                        'intermediate': 'intermediate_words.csv',
-                        'advanced': 'advanced_words.csv'
-                    }
+                config = load_csv_config()
                 
                 self.send_response(200)
                 self.send_header('Content-type', 'application/json')

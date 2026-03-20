@@ -190,7 +190,7 @@
 
 		async function loadLevelWords(level, ts) {
 			try {
-				const apiResponse = await fetch(`/api/get-level-words?level=${encodeURIComponent(level)}&v=${ts}`);
+				const apiResponse = await fetch(`/api/get-level-words?level=${encodeURIComponent(level)}&v=${ts}`, { cache: 'no-store' });
 				if (apiResponse.ok) {
 					const data = await apiResponse.json();
 					return {
@@ -200,20 +200,79 @@
 					};
 				}
 			} catch (error) {
-				// ignore and fallback to vocabulary.json
+				// ignore and fallback to CSV files
 			}
 
-			const response = await fetch(`/vocabulary.json?v=${ts}`);
-			if (!response.ok) {
-				return { ok: false, source: '', words: [] };
+			return loadLevelWordsFromCsvFallback(level, ts);
+		}
+
+		function parseCsvRow(line) {
+			const values = [];
+			let current = '';
+			let inQuotes = false;
+
+			for (let i = 0; i < line.length; i++) {
+				const char = line[i];
+				if (char === '"') {
+					if (inQuotes && line[i + 1] === '"') {
+						current += '"';
+						i += 1;
+					} else {
+						inQuotes = !inQuotes;
+					}
+				} else if (char === ',' && !inQuotes) {
+					values.push(current);
+					current = '';
+				} else {
+					current += char;
+				}
 			}
 
-			const data = await response.json();
-			return {
-				ok: true,
-				source: '',
-				words: Array.isArray(data[level]) ? data[level] : []
-			};
+			values.push(current);
+			return values;
+		}
+
+		async function loadLevelWordsFromCsvFallback(level, ts) {
+			const cfg = await loadCurrentCsvConfig(ts);
+			const source = (cfg && cfg[level]) ? cfg[level] : `${level}_words.csv`;
+
+			const csvResponse = await fetch(`/${source}?v=${ts}`, { cache: 'no-store' });
+			if (!csvResponse.ok) {
+				return { ok: false, source, words: [] };
+			}
+
+			const csvText = await csvResponse.text();
+			const lines = csvText.split(/\r?\n/).filter((line) => line.trim() !== '');
+			if (lines.length <= 1) {
+				return { ok: true, source, words: [] };
+			}
+
+			const headers = parseCsvRow(lines[0]);
+			const idx = {};
+			headers.forEach((name, i) => {
+				idx[name] = i;
+			});
+
+			const words = [];
+			for (let i = 1; i < lines.length; i++) {
+				const cols = parseCsvRow(lines[i]);
+				const word = (cols[idx.word] || '').trim();
+				const meaning = (cols[idx.meaning] || '').trim();
+				if (!word || !meaning) continue;
+
+				words.push({
+					word,
+					meaning,
+					option1: (cols[idx.option1] || '').trim(),
+					option2: (cols[idx.option2] || '').trim(),
+					option3: (cols[idx.option3] || '').trim(),
+					Ginger: (cols[idx.Ginger] || '0').trim() || '0',
+					River: (cols[idx.River] || '0').trim() || '0',
+					Sigma: (cols[idx.Sigma] || '0').trim() || '0'
+				});
+			}
+
+			return { ok: true, source, words };
 		}
 
 		async function loadCurrentCsvConfig(ts) {
@@ -224,7 +283,7 @@
 			};
 
 			try {
-				const apiResponse = await fetch('/api/get-csv-config');
+				const apiResponse = await fetch(`/api/get-csv-config?v=${ts}`, { cache: 'no-store' });
 				if (apiResponse.ok) {
 					return await apiResponse.json();
 				}

@@ -1,183 +1,351 @@
 {
   "elementary": [
     {
-      "word": "FORK",
-      "meaning": "叉子",
+      "word": "ONE",
+      "meaning": "一",
       "options": [
-        "剪刀",
-        "湯匙",
-        "甜點"
-      ],
-      "Ginger": "-1",
-      "River": "-4",
-      "Sigma": "0"
-    },
-    {
-      "word": "SPOON",
-      "meaning": "湯匙",
-      "options": [
-        "n.",
-        "湯",
-        "刀子"
+        "冷",
+        "手臂",
+        "八"
       ],
       "Ginger": "-1",
       "River": "0",
       "Sigma": "0"
     },
     {
-      "word": "KNIFE",
-      "meaning": "刀子",
+      "word": "TWO",
+      "meaning": "二",
       "options": [
-        "n.",
-        "叉子",
-        "湯匙"
+        "五",
+        "九",
+        "發燒"
       ],
       "Ginger": "0",
-      "River": "-3",
+      "River": "0",
       "Sigma": "0"
     },
     {
-      "word": "SOUP",
-      "meaning": "湯",
+      "word": "THREE",
+      "meaning": "三",
       "options": [
-        "n.",
-        "肉",
-        "餓的"
+        "雙腳",
+        "頭痛",
+        "受傷"
+      ],
+      "Ginger": "-1",
+      "River": "0",
+      "Sigma": "0"
+    },
+    {
+      "word": "FOUR",
+      "meaning": "四",
+      "options": [
+        "六",
+        "八",
+        "十"
       ],
       "Ginger": "0",
-      "River": "1",
-      "Sigma": "0"
-    },
-    {
-      "word": "MEAT",
-      "meaning": "肉",
-      "options": [
-        "n.",
-        "餓的",
-        "甜點"
-      ],
-      "Ginger": "-1",
-      "River": "-3",
-      "Sigma": "0"
-    },
-    {
-      "word": "SWEETS",
-      "meaning": "甜點",
-      "options": [
-        "n.",
-        "肉",
-        "湯"
-      ],
-      "Ginger": "-3",
       "River": "0",
       "Sigma": "0"
     },
     {
-      "word": "HUNGRY",
-      "meaning": "餓的",
+      "word": "FIVE",
+      "meaning": "五",
       "options": [
-        "adj.",
-        "檢查",
-        "愉快的"
-      ],
-      "Ginger": "1",
-      "River": "-2",
-      "Sigma": "0"
-    },
-    {
-      "word": "LUNCH",
-      "meaning": "午餐",
-      "options": [
-        "n.",
-        "早餐",
-        "援助"
-      ],
-      "Ginger": "-1",
-      "River": "-3",
-      "Sigma": "0"
-    },
-    {
-      "word": "TASTE",
-      "meaning": "嚐起來",
-      "options": [
-        "adj.",
-        "角度",
-        "好看的"
-      ],
-      "Ginger": "-2",
-      "River": "0",
-      "Sigma": "0"
-    },
-    {
-      "word": "SOUND",
-      "meaning": "聽起來",
-      "options": [
-        "v.",
-        "漂亮的",
-        "感覺起來"
-      ],
-      "Ginger": "-1",
-      "River": "3",
-      "Sigma": "0"
-    },
-    {
-      "word": "LOOK",
-      "meaning": "看起來",
-      "options": [
-        "v.",
-        "協助",
-        "聞起來"
-      ],
-      "Ginger": "-2",
-      "River": "0",
-      "Sigma": "0"
-    },
-    {
-      "word": "SMELL",
-      "meaning": "聞起來",
-      "options": [
-        "v.",
-        "愉悅的",
-        "角度"
-      ],
-      "Ginger": "-1",
-      "River": "3",
-      "Sigma": "0"
-    },
-    {
-      "word": "FEEL",
-      "meaning": "感覺起來",
-      "options": [
-        "v.",
-        "歡樂的",
-        "核心的"
+        "耳朵",
+        "六",
+        "十"
       ],
       "Ginger": "0",
-      "River": "-1",
+      "River": "0",
       "Sigma": "0"
     },
     {
-      "word": "DINNER",
-      "meaning": "晚餐",
+      "word": "SIX",
+      "meaning": "六",
       "options": [
-        "n.",
-        "考察",
-        "早餐"
+        "一",
+        "五",
+        "鼻子"
       ],
       "Ginger": "1",
       "River": "0",
       "Sigma": "0"
     },
     {
-      "word": "BREAKFAST",
-      "meaning": "早餐",
+      "word": "SEVEN",
+      "meaning": "七",
       "options": [
-        "n.",
-        "午餐",
-        "援助"
+        "受傷",
+        "九",
+        "發燒"
+      ],
+      "Ginger": "1",
+      "River": "0",
+      "Sigma": "0"
+    },
+    {
+      "word": "EIGHT",
+      "meaning": "八",
+      "options": [
+        "千",
+        "三",
+        "雙腳"
+      ],
+      "Ginger": "-1",
+      "River": "0",
+      "Sigma": "0"
+    },
+    {
+      "word": "NINE",
+      "meaning": "九",
+      "options": [
+        "八",
+        "千",
+        "一"
+      ],
+      "Ginger": "0",
+      "River": "0",
+      "Sigma": "0"
+    },
+    {
+      "word": "TEN",
+      "meaning": "十",
+      "options": [
+        "雙腿",
+        "百",
+        "腳"
+      ],
+      "Ginger": "0",
+      "River": "0",
+      "Sigma": "0"
+    },
+    {
+      "word": "HUNDRED",
+      "meaning": "百",
+      "options": [
+        "嘴巴",
+        "雙腳",
+        "一"
+      ],
+      "Ginger": "0",
+      "River": "0",
+      "Sigma": "0"
+    },
+    {
+      "word": "THROUSAND",
+      "meaning": "千",
+      "options": [
+        "一",
+        "三",
+        "耳朵"
+      ],
+      "Ginger": "-2",
+      "River": "0",
+      "Sigma": "0"
+    },
+    {
+      "word": "EYES",
+      "meaning": "眼睛",
+      "options": [
+        "受傷",
+        "腳",
+        "七"
+      ],
+      "Ginger": "2",
+      "River": "0",
+      "Sigma": "0"
+    },
+    {
+      "word": "EARS",
+      "meaning": "耳朵",
+      "options": [
+        "四",
+        "雙腿",
+        "眼睛"
+      ],
+      "Ginger": "-1",
+      "River": "0",
+      "Sigma": "0"
+    },
+    {
+      "word": "NOSE",
+      "meaning": "鼻子",
+      "options": [
+        "頭痛",
+        "四",
+        "受傷"
+      ],
+      "Ginger": "0",
+      "River": "0",
+      "Sigma": "0"
+    },
+    {
+      "word": "MOUTH",
+      "meaning": "嘴巴",
+      "options": [
+        "胃痛",
+        "雙腿",
+        "千"
+      ],
+      "Ginger": "0",
+      "River": "0",
+      "Sigma": "0"
+    },
+    {
+      "word": "HANDS",
+      "meaning": "手",
+      "options": [
+        "六",
+        "八",
+        "嘴巴"
+      ],
+      "Ginger": "-1",
+      "River": "0",
+      "Sigma": "0"
+    },
+    {
+      "word": "ARMS",
+      "meaning": "手臂",
+      "options": [
+        "四",
+        "八",
+        "腳"
+      ],
+      "Ginger": "-1",
+      "River": "0",
+      "Sigma": "0"
+    },
+    {
+      "word": "LEGS",
+      "meaning": "雙腿",
+      "options": [
+        "九",
+        "一",
+        "八"
+      ],
+      "Ginger": "0",
+      "River": "0",
+      "Sigma": "0"
+    },
+    {
+      "word": "FOOT",
+      "meaning": "腳",
+      "options": [
+        "受傷",
+        "二",
+        "嘴巴"
+      ],
+      "Ginger": "0",
+      "River": "0",
+      "Sigma": "0"
+    },
+    {
+      "word": "FEET",
+      "meaning": "雙腳",
+      "options": [
+        "鼻子",
+        "三",
+        "百"
+      ],
+      "Ginger": "-2",
+      "River": "0",
+      "Sigma": "0"
+    },
+    {
+      "word": "COLD",
+      "meaning": "冷",
+      "options": [
+        "千",
+        "七",
+        "牙痛"
+      ],
+      "Ginger": "0",
+      "River": "0",
+      "Sigma": "0"
+    },
+    {
+      "word": "FEVER",
+      "meaning": "發燒",
+      "options": [
+        "雙腳",
+        "眼睛",
+        "喉嚨痛"
+      ],
+      "Ginger": "-1",
+      "River": "0",
+      "Sigma": "0"
+    },
+    {
+      "word": "RUNNY NOSE",
+      "meaning": "流鼻水",
+      "options": [
+        "腳",
+        "鼻子",
+        "眼睛"
       ],
       "Ginger": "-3",
-      "River": "-3",
+      "River": "0",
+      "Sigma": "0"
+    },
+    {
+      "word": "SORE THROAT",
+      "meaning": "喉嚨痛",
+      "options": [
+        "二",
+        "七",
+        "雙腿"
+      ],
+      "Ginger": "-2",
+      "River": "0",
+      "Sigma": "0"
+    },
+    {
+      "word": "HEADACHE",
+      "meaning": "頭痛",
+      "options": [
+        "六",
+        "喉嚨痛",
+        "腳"
+      ],
+      "Ginger": "-1",
+      "River": "0",
+      "Sigma": "0"
+    },
+    {
+      "word": "TOOTHACHE",
+      "meaning": "牙痛",
+      "options": [
+        "胃痛",
+        "八",
+        "手"
+      ],
+      "Ginger": "0",
+      "River": "0",
+      "Sigma": "0"
+    },
+    {
+      "word": "STOMACHACHE",
+      "meaning": "胃痛",
+      "options": [
+        "冷",
+        "十",
+        "鼻子"
+      ],
+      "Ginger": "0",
+      "River": "0",
+      "Sigma": "0"
+    },
+    {
+      "word": "HURT",
+      "meaning": "受傷",
+      "options": [
+        "流鼻水",
+        "八",
+        "三"
+      ],
+      "Ginger": "-1",
+      "River": "0",
       "Sigma": "0"
     }
   ],
